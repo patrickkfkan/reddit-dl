@@ -1,0 +1,197 @@
+@use './mixins';
+
+.card {
+  .card-header,
+  &.post .card-footer {
+    a {
+      color: inherit;
+
+      &:hover {
+        color: var(--bs-link-hover-color);
+      }
+    }
+
+    .icon {
+      width: 1.3rem;
+      height: 1.3rem;
+      object-fit: cover;
+      border-radius: var(--bs-border-radius-pill);
+    }
+
+    .title {
+      font-weight: 500;
+      font-size: 1.2rem;
+    }
+
+    .subtitle,
+    .kicker {
+      color: var(--bs-secondary-color);
+    }
+
+    .subtitle {
+      margin-top: 0.2rem;
+      font-size: 0.9rem;
+    }
+  }
+
+  &.post,
+  &.post-comment {
+    .card-header {
+      .kicker {
+        margin-bottom: 0.2rem;
+      }
+
+      .subtitle {
+        display: flex;
+        gap: 1.2rem;
+
+        .icon {
+          display: none;
+        }
+      }
+    }
+
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .external-link {
+      font-size: 1rem;
+    }
+
+    .embedded-content-media-wrapper {
+      text-align: center;
+
+      .caption {
+        font-size: smaller;
+      }
+    }
+
+    .embedded-content-media img {
+      max-width: 100%;
+    }
+  }
+
+  &.target,
+  &.subreddit,
+  &.user,
+  &.post-comment {
+    .card-header,
+    .card-footer {
+      background: none;
+      border: none;
+    }
+
+    .card-footer {
+      display: flex;
+      gap: 1.2rem;
+    }
+  }
+
+  &.post {
+    .card-footer {
+      background: none;
+      display: flex;
+      gap: 1.2rem;
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  &.post,
+  &.post-comment,
+  &.search-post-comment-result {
+    .score,
+    .comments {
+      font-family: 'Material Icons Outlined';
+      font-size: inherit;
+      line-height: inherit;
+      font-weight: normal;
+    }
+  }
+
+  &.post-comment {
+    border: none;
+    margin-bottom: 0;
+    background: none;
+    box-shadow: none;
+
+    &:not(.reply):not(.search-result) {
+      --bs-card-spacer-x: 0;
+      --bs-card-cap-padding-x: 0;
+    }
+
+    .card-body {
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .op:after {
+      content: 'OP';
+      font-size: 0.8rem;
+      color: var(--bs-primary);
+      font-weight: 600;
+      margin-left: 0.25rem;
+    }
+
+    &.reply {
+      border-left: 1px solid rgba(var(--bs-body-color-rgb), 0.4);
+      border-radius: 0;
+
+      &:not(:last-of-type) {
+        padding-bottom: 1rem;
+      }
+    }
+
+    .view-replies {
+      position: relative;
+      top: -0.5rem;
+    }
+
+    .view-replies::before {
+      content: '\2937';
+      position: relative;
+      top: -0.1rem;
+      margin-right: 0.5rem;
+    }
+  }
+
+  &.search-post-comment-result {
+    & > .card-body {
+      padding: 0;
+
+      & > .card.post-comment {
+        margin-bottom: 1rem;
+
+        .post-comment-text {
+          border-bottom: 0;
+        }
+      }
+    }
+  }
+
+  &.target {
+    .target-type {
+      color: var(--bs-primary-text-emphasis);
+      background: var(--bs-primary-bg-subtle);
+      padding: 0.2rem 0.5rem;
+      border-radius: 1rem;
+      margin-bottom: 0.3rem;
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+
+    .title a {
+      @include mixins.line-clamp();
+    }
+  }
+
+  .fade-content {
+    --fade-content-bg: var(--bs-card-bg);
+  }
+}

@@ -1,0 +1,17 @@
+@use './mixins';
+
+.sidebar-trigger {
+  text-decoration: none;
+  color: var(--bs-body-color);
+  margin-right: calc(var(--bs-gutter-x) * -0.5);
+
+  &:hover {
+    color: var(--bs-link-hover-color);
+  }
+
+  transition: color 150ms;
+}
+
+.sidebar-canvas {
+  border-right: 0 !important;
+}

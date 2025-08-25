@@ -1,0 +1,21 @@
+.posts-containing-media-modal {
+  .card,
+  .card-header {
+    background: none;
+    padding: 0;
+    border: none;
+    margin-bottom: 0;
+  }
+
+  .card {
+    .external-link {
+      display: none;
+    }
+
+    &:not(:last-of-type) {
+      border-bottom: 1px solid var(--bs-border-color);
+      border-radius: 0;
+      padding-bottom: 1.5rem;
+    }
+  }
+}

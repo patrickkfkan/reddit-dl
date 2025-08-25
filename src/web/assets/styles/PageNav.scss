@@ -1,0 +1,43 @@
+.page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .page,
+  .prev,
+  .next {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.6rem;
+    aspect-ratio: 1;
+    border-radius: var(--bs-border-radius-pill);
+    margin: 0 0.2rem;
+    color: var(--bs-primary-color);
+    min-width: 2rem;
+    min-height: 2rem;
+
+    &.current {
+      background: var(--bs-primary);
+      color: #fff;
+      pointer-events: none;
+    }
+
+    &:not(.current):hover {
+      color: var(--bs-link-hover-color);
+      background: var(--bs-primary-bg-subtle);
+      transition: background-color 0.15s;
+    }
+  }
+
+  .prev:hover,
+  .next:hover {
+    color: var(--bs-link-hover-color);
+  }
+
+  .separator {
+    letter-spacing: 1px;
+    color: var(--bs-primary-color);
+    margin: 0 0.3rem;
+  }
+}

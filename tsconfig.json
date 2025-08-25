@@ -1,0 +1,17 @@
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite-env.d.ts"],
+  "compilerOptions": {
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "strict": true
+  }
+}

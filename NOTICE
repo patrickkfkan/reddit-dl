@@ -1,0 +1,23 @@
+NOTICE
+
+This project is licensed under the MIT License.
+
+This product includes software developed by third parties under various open source licenses. The following components have licenses that require attribution or compliance beyond MIT:
+
+- sanitize-html — Custom license based on Mozilla Public License  
+  Author: Andreas Gal  
+  Repository: https://github.com/apostrophecms/sanitize-html
+
+- sqlite — Apache License 2.0  
+  Author: D. Richard Hipp  
+  Repository: https://github.com/sqlite/sqlite
+
+- sqlite3 — BSD 3-Clause License  
+  Author: Mapbox  
+  Repository: https://github.com/TryGhost/node-sqlite3
+
+- lightgallery — GNU General Public License v3.0  
+  Author: Sachin N  
+  Repository: https://github.com/sachinchoolur/lightGallery
+
+Refer to each dependency’s LICENSE file in node_modules or online for full terms.

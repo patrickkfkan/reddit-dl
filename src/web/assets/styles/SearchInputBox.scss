@@ -1,0 +1,9 @@
+.search-input-box {
+  a.clear-context {
+    color: inherit;
+
+    &:hover {
+      color: var(--bs-link-hover-color);
+    }
+  }
+}

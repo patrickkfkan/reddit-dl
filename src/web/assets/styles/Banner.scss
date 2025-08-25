@@ -1,0 +1,73 @@
+.banner {
+  .icon {
+    object-fit: cover;
+    border-radius: var(--bs-border-radius-pill);
+  }
+
+  &[data-lines='3'] .icon {
+    width: 6rem;
+    height: 6rem;
+  }
+
+  &[data-lines='2'] .icon,
+  &[data-lines='1'] .icon {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--bs-body-color);
+    font-size: 1.25rem;
+    font-weight: bold;
+
+    a {
+      color: inherit;
+
+      &:hover {
+        color: var(--bs-link-hover-color);
+      }
+    }
+
+    .external-link {
+      font-size: 1.25rem;
+    }
+
+    &[data-lines='1'] {
+      font-size: 2rem;
+    }
+  }
+
+  .caption {
+    color: var(--bs-secondary-color);
+    font-size: 1rem;
+  }
+
+  .short-description {
+    color: var(--bs-body-color);
+    font-size: 1rem;
+  }
+
+  button.show-description {
+    transition: transform 0.25s;
+
+    &.collapsed {
+      transform: rotate(180deg);
+    }
+
+    > span {
+      line-height: inherit;
+    }
+  }
+
+  .description {
+    table {
+      td,
+      th {
+        padding: 0.5rem;
+      }
+    }
+  }
+}

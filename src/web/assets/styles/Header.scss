@@ -1,0 +1,45 @@
+.menu-bar {
+  --menu-bar-color: #a42828;
+
+  .brand {
+    color: #fff;
+    background: var(--menu-bar-color);
+    padding: 1rem;
+    font-weight: 600;
+    pointer-events: none;
+  }
+
+  .menu-items {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  .menu-link {
+    color: var(--bs-body-color);
+    font-weight: 500;
+
+    .material-icons {
+      width: 1.25rem;
+      height: 1.25rem;
+      line-height: 1.25rem;
+    }
+
+    &:hover {
+      color: var(--bs-link-hover-color);
+    }
+  }
+
+  .project-link {
+    .project-icon {
+      width: 1.35rem;
+      height: 1.35rem;
+      fill: var(--bs-body-color);
+    }
+
+    &:hover {
+      .project-icon {
+        fill: var(--bs-link-hover-color) !important;
+      }
+    }
+  }
+}
