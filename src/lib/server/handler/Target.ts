@@ -22,6 +22,7 @@ export function TargetPageWebRequestHandlerMixin<
         all: this.db.getTargetCount(),
         subreddit_posts: this.db.getTargetCount('subreddit_posts'),
         user_submitted: this.db.getTargetCount('user_submitted'),
+        user_saved: this.db.getTargetCount('user_saved'),
         post: this.db.getTargetCount('post')
       };
       if (!counts.all) {
@@ -70,6 +71,16 @@ export function TargetPageWebRequestHandlerMixin<
           )
         );
       }
+      if (counts.user_saved && counts.user_saved > 0) {
+        tabs.push(
+          this.#createTargetResultsTab(
+            req,
+            'user_saved',
+            'Saved',
+            currentTabName === 'user_saved'
+          )
+        );
+      }
       if (counts.post && counts.post > 0) {
         tabs.push(
           this.#createTargetResultsTab(
@@ -95,9 +106,13 @@ export function TargetPageWebRequestHandlerMixin<
     }
 
     #validateTabName(value: string): value is TargetResultsTab['name'] {
-      return ['all', 'user_submitted', 'subreddit_posts', 'post'].includes(
-        value
-      );
+      return [
+        'all',
+        'user_submitted',
+        'user_saved',
+        'subreddit_posts',
+        'post'
+      ].includes(value);
     }
 
     #createTargetResultsTab(
@@ -199,6 +214,26 @@ export function TargetPageWebRequestHandlerMixin<
               icon: this.getUserIconURL(target.user) || undefined,
               text: target.rawValue,
               url: this.getUserOverviewURL(target.user)
+            };
+            break;
+          }
+          case 'user_saved': {
+            targetId = `user.saved:${target.user.username}`;
+            targetTypeName = 'Saved';
+            // Count posts associated with this saved target
+            const postCount =
+              this.db.getPostCountByTarget(undefined, targetId) || 0;
+            if (postCount) {
+              footerLinks.push({
+                title: 'Posts:',
+                anchorText: String(postCount),
+                url: this.getUserSavedURL(target.user)
+              });
+            }
+            title = {
+              icon: this.getUserIconURL(target.user) || undefined,
+              text: target.rawValue,
+              url: this.getUserSavedURL(target.user)
             };
             break;
           }

@@ -227,6 +227,66 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       }
     }
 
+    async fetchSavedPostsByUser(params: {
+      user: User;
+      after?: string;
+      limit?: number;
+    }): Promise<FetchPostsResult> {
+      const { user, after, limit = MAX_LIMIT } = params;
+      try {
+        const { json: data } = await this.defaultLimiter.schedule(() =>
+          Abortable.wrap((signal) =>
+            this.fetcher.fetchAPI({
+              endpoint: `/user/${user.username}/saved.json`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                limit: String(limit),
+                after: after || null
+              },
+              signal,
+              requiresAuth: true
+            })
+          )
+        );
+        const children = ObjectHelper.getProperty(data, 'data.children');
+        if (!Array.isArray(children)) {
+          throw new TypeError('data.children is not an array');
+        }
+        const postChildren = children.filter(
+          (child: any) => child?.kind === 't3'
+        );
+        const mappedPostResults = await Promise.all(
+          postChildren.map((child) =>
+            Abortable.wrap(() =>
+              this.#mapPostData(child, null, null, this.config.fetchPostAuthors)
+            )
+          )
+        );
+        const errorCount = mappedPostResults.reduce<number>(
+          (result, { errorCount }) => result + errorCount,
+          0
+        );
+        const posts = mappedPostResults
+          .map(({ post }) => post)
+          .filter((post) => post !== null);
+        return {
+          posts,
+          errorCount,
+          after: ObjectHelper.getProperty(data, 'data.after') || null
+        };
+      } catch (error) {
+        if (!(error instanceof AbortError)) {
+          this.log(
+            'error',
+            `Failed to fetch saved posts for user ${user.username}:`,
+            error
+          );
+        }
+        throw error;
+      }
+    }
+
     async #mapPostData(
       data: any,
       user: User | null,

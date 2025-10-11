@@ -19,7 +19,12 @@ import path from 'path';
 
 export type PostPageListDomain = 'subreddit' | 'user' | 'all';
 
-export type PostPageRequestDomain = 'post' | 'subreddit' | 'user' | 'all';
+export type PostPageRequestDomain =
+  | 'post'
+  | 'subreddit'
+  | 'user'
+  | 'user_saved'
+  | 'all';
 
 export type PostPageRequestParams = {
   req: Request;
@@ -35,6 +40,10 @@ export type PostPageRequestParams = {
     }
   | {
       domain: 'user';
+      username: string;
+    }
+  | {
+      domain: 'user_saved';
       username: string;
     }
   | {
@@ -67,6 +76,10 @@ export type GetPostListPageParams = {
     }
   | {
       domain: 'user';
+      username: string;
+    }
+  | {
+      domain: 'user_saved';
       username: string;
     }
   | {
@@ -110,6 +123,7 @@ export function PostPageWebRequestHandlerMixin<
         }
         case 'subreddit':
         case 'user':
+        case 'user_saved':
         case 'all': {
           res.json(
             this.getPostListPage({
@@ -159,6 +173,29 @@ export function PostPageWebRequestHandlerMixin<
         searchContext = {
           target: 'by_user',
           username: params.username
+        };
+      } else if (domain === 'user_saved') {
+        const targetId = `user.saved:${params.username}`;
+        const user = this.db.getUser(params.username);
+        const posts = this.db.getPostsByTarget({
+          targetId,
+          ...ssb,
+          limit,
+          offset
+        });
+        const items = posts.map<PageElements.Card<'Post'>>((post) =>
+          this.#createPostCard(post, true, true, true)
+        );
+        const total = this.db.getPostCountByTarget(ssb.search, targetId) ?? -1;
+        postList = {
+          user: user || undefined,
+          posts: items,
+          total
+        } as PostPageList;
+        banner = user ? this.getUserBanner(user) : null;
+        // Use global search context for saved listings
+        searchContext = {
+          target: 'all'
         };
       } else {
         // All

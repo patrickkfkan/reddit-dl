@@ -394,16 +394,19 @@ export class RedditDownloaderBase {
         break;
       }
       case 'user': {
-        const username = target.replace('u/', '');
-        this.log('info', `Fetching user profile for "${username}"...`);
-        let user = await Abortable.wrap(() => api.fetchUser(username));
+        const userPath = target.replace(/^u\//, '');
+        const isSaved = userPath.endsWith('/saved');
+        const cleanUsername =
+          isSaved ? userPath.replace(/\/saved$/, '') : userPath;
+        this.log('info', `Fetching user profile for "${cleanUsername}"...`);
+        let user = await Abortable.wrap(() => api.fetchUser(cleanUsername));
 
-        const resolvedTarget: ResolvedTarget = {
-          type: 'user_submitted',
+        const resolvedTarget = {
+          type: isSaved ? 'user_saved' : 'user_submitted',
           rawValue: target,
           runTimestamp,
           user
-        };
+        } as Extract<ResolvedTarget, { type: 'user_submitted' | 'user_saved' }>;
         if (this.config.saveTargetToDB) {
           db.saveTarget(resolvedTarget);
           this.log('info', `Saved target info`);
@@ -423,26 +426,26 @@ export class RedditDownloaderBase {
         let continuation: string | undefined = undefined;
         let processed = 0;
         let counter = 1;
+        const associatedPostIds: string[] = [];
         while (firstRun || continuation) {
           if (this.#postLimitReached(processed)) {
             return;
           }
           this.log(
             'info',
-            `Fetching ${firstRun ? '' : 'next batch of '}posts for "${target}"...`
+            `Fetching ${firstRun ? '' : 'next batch of '}${isSaved ? 'saved ' : ''}posts for "${target}"...`
           );
           firstRun = false;
           const { posts, errorCount, after } = await Abortable.wrap(() =>
-            api.fetchPostsByUser({
-              user,
-              after: continuation
-            })
+            isSaved ?
+              api.fetchSavedPostsByUser({ user, after: continuation })
+            : api.fetchPostsByUser({ user, after: continuation })
           );
           stats.errorCount += errorCount;
           if (posts.length === 0) {
             this.log(
               'warn',
-              `No ${firstRun ? '' : 'more '} posts found for "${target}"`
+              `No ${firstRun ? '' : 'more '} ${isSaved ? 'saved ' : ''}posts found for "${target}"`
             );
             break;
           }
@@ -455,7 +458,7 @@ export class RedditDownloaderBase {
               this.processPost({
                 post,
                 stats,
-                processAuthor: false,
+                processAuthor: isSaved,
                 processSubreddit: true,
                 isBatch: true
               })
@@ -464,12 +467,19 @@ export class RedditDownloaderBase {
             if (processedPost) {
               processed++;
               stats.processedPostCount++;
+              if (isSaved) {
+                associatedPostIds.push(processedPost.id);
+              }
             }
             if (!cont) {
               return;
             }
           }
           continuation = after || undefined;
+        }
+        if (isSaved && this.config.saveTargetToDB && associatedPostIds.length) {
+          const targetId = `user.saved:${user.username}`;
+          db.addPostsToTarget(targetId, associatedPostIds);
         }
         break;
       }

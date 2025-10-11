@@ -104,6 +104,10 @@ export class WebRequestHandlerBase {
     return `/u/${user.username}/submitted`;
   }
 
+  protected getUserSavedURL(user: User) {
+    return `/u/${user.username}/saved`;
+  }
+
   protected getUserMediaURL(user: User) {
     return `/u/${user.username}/media`;
   }
@@ -118,6 +122,25 @@ export class WebRequestHandlerBase {
 
   protected getSubredditMediaURL(subreddit: Subreddit) {
     return `/r/${subreddit.name}/media`;
+  }
+
+  getLatestSavedTargetURL() {
+    try {
+      const targets = this.db.getTargets({
+        // Cast to any to allow filtering by specific type without changing signature
+        type: 'user_saved' as any,
+        sortBy: 'mostRecentlyRun',
+        limit: 1,
+        offset: 0
+      });
+      const target = targets[0];
+      if (target && target.type === 'user_saved') {
+        return this.getUserSavedURL(target.user);
+      }
+    } catch (_e) {
+      // ignore errors
+    }
+    return null;
   }
 
   protected getPostURL(post: Post<PostType>) {

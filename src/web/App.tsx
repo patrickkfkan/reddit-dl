@@ -46,6 +46,7 @@ function App() {
                   path="u/:username/submitted"
                   element={<PostListPage />}
                 />
+                <Route path="u/:username/saved" element={<PostListPage />} />
                 <Route path="post/:postId" element={<PostPage />} />
                 <Route path="media" element={<MediaListPage />} />
                 <Route

@@ -26,6 +26,7 @@ function Header({
 }: HeaderProps) {
   const { showBrowseSettingsModal } = useGlobalModals();
   const [packageInfo, setPackageInfo] = useState<PackageInfo | null>(null);
+  const [savedURL, setSavedURL] = useState<string | null>(null);
 
   const showMainLinks = features?.mainLinks ?? true;
   const showSearchBox = features?.searchBox ?? true;
@@ -40,6 +41,13 @@ function Header({
             await fetch('/api/about', { signal: abortController.signal })
           ).json()
         );
+        const savedURLRes = await fetch('/api/saved/latest', {
+          signal: abortController.signal
+        });
+        if (savedURLRes.ok) {
+          const { url } = (await savedURLRes.json()) as { url: string | null };
+          setSavedURL(url);
+        }
       } catch (error) {
         if (abortController.signal.aborted) {
           return;
@@ -76,6 +84,15 @@ function Header({
               <NavLink className="menu-link" to="/" onClick={onLinkClick}>
                 Targets
               </NavLink>
+              {savedURL && (
+                <NavLink
+                  className="menu-link"
+                  to={savedURL}
+                  onClick={onLinkClick}
+                >
+                  Saved
+                </NavLink>
+              )}
               <NavLink
                 className="menu-link"
                 to="/subreddits"

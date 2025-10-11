@@ -92,6 +92,7 @@ class WebRequestRouter {
       const view = req.params.view;
       if (
         view !== 'submitted' &&
+        view !== 'saved' &&
         view !== 'media' &&
         view !== 'overview' &&
         view !== 'search'
@@ -108,6 +109,13 @@ class WebRequestRouter {
         case 'submitted':
           return this.#handler.handlePostPageRequest({
             domain: 'user',
+            username: req.params.username,
+            req,
+            res
+          });
+        case 'saved':
+          return this.#handler.handlePostPageRequest({
+            domain: 'user_saved',
             username: req.params.username,
             req,
             res
@@ -172,6 +180,12 @@ class WebRequestRouter {
     this.#router.get('/api/about', (req, res) =>
       this.#handler.handleAboutRequest(req, res)
     );
+
+    // Convenience: latest saved page for quick access in header
+    this.#router.get('/api/saved/latest', (req, res) => {
+      const url = this.#handler.getLatestSavedTargetURL();
+      res.json({ url });
+    });
 
     this.#router.get('/image', (req, res) =>
       this.#handler.handleMediaRequest('image', req, res)

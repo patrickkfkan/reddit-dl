@@ -538,6 +538,23 @@ export function openDB(file: string, logger?: Logger | null) {
         PRIMARY KEY("env_key")
       );
 
+      -- Association between targets and posts for target-specific listings (e.g., user saved)
+      CREATE TABLE IF NOT EXISTS "target_post" (
+        "target_id" TEXT NOT NULL,
+        "post_id" TEXT NOT NULL,
+        PRIMARY KEY("target_id", "post_id"),
+        FOREIGN KEY("target_id") REFERENCES "target"("target_id"),
+        FOREIGN KEY("post_id") REFERENCES "post"("post_id")
+      );
+
+      CREATE INDEX IF NOT EXISTS "target_post_target_index" ON "target_post" (
+        "target_id"
+      );
+
+      CREATE INDEX IF NOT EXISTS "target_post_post_index" ON "target_post" (
+        "post_id"
+      );
+
       CREATE TABLE IF NOT EXISTS "media_stats" (
         "media_id"	INTEGER,
         "post_count" NUMBER,

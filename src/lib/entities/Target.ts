@@ -11,6 +11,10 @@ export type ResolvedTarget = {
       user: User;
     }
   | {
+      type: 'user_saved';
+      user: User;
+    }
+  | {
       type: 'subreddit_posts';
       subreddit: Subreddit;
     }

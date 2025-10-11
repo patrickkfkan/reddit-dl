@@ -3,7 +3,7 @@ import { PostListPage } from '../types/Page';
 import { type ContainerProps, Stack } from 'react-bootstrap';
 import ContentCard from '../components/ContentCard';
 import RenderedPage from '../components/RenderedPage';
-import { useParams } from 'react-router';
+import { useLocation, useParams } from 'react-router';
 import { useBrowseSettings } from '../contexts/BrowseSettingsProvider';
 
 interface PostListPageProps extends ContainerProps {
@@ -12,6 +12,7 @@ interface PostListPageProps extends ContainerProps {
 
 function PostListPage({ page, ...containerProps }: PostListPageProps) {
   const params = useParams();
+  const location = useLocation();
   const { settings } = useBrowseSettings();
 
   const renderContent = useCallback((page: PostListPage) => {
@@ -38,7 +39,8 @@ function PostListPage({ page, ...containerProps }: PostListPageProps) {
   if (params.subredditName) {
     fetchPageURL = `/api/r/${params.subredditName}/posts`;
   } else if (params.username) {
-    fetchPageURL = `/api/u/${params.username}/submitted`;
+    const isSaved = location.pathname.endsWith('/saved');
+    fetchPageURL = `/api/u/${params.username}/${isSaved ? 'saved' : 'submitted'}`;
   } else {
     fetchPageURL = '/api/posts/page';
   }
