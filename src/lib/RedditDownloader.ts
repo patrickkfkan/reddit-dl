@@ -35,7 +35,7 @@ import {
   type ProcessSavedItemParams,
   SavedItemProcessorMixin
 } from './core/SavedItemProcessor.js';
-import { type FetchSavedItemsResult } from './api/Post.js';
+import { FetchSavedItemsResult } from './api/SavedItem.js';
 
 export type DownloadTargetType =
   | 'userGalleries'

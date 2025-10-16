@@ -1,7 +1,6 @@
 import { type APIConstructor } from '.';
-import { type User } from '../entities/User';
 import { Abortable, AbortError } from '../utils/Abortable';
-import { DELETED_USER, SITE_URL } from '../utils/Constants';
+import { DELETED_USER } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
 import { validateURL } from '../utils/URL';
 
@@ -27,7 +26,7 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
             })
           )
         );
-        return this.#parse(ObjectHelper.getProperty(json, 'data', true));
+        return this.parser.parseUser(ObjectHelper.getProperty(json, 'data', true));
       } catch (error) {
         if (error instanceof AbortError) {
           throw error;
@@ -50,7 +49,7 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
             })
           )
         );
-        return this.#parse(json);
+        return this.parser.parseUser(json);
       } catch (error) {
         if (error instanceof AbortError) {
           throw error;
@@ -85,5 +84,6 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
       };
       return user;
     }
+    
   };
 }
