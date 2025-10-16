@@ -18,5 +18,7 @@ export interface UserWithCounts {
   counts: {
     post: number;
     media: number;
+    savedPost: number;
+    savedComment: number;
   };
 }

@@ -100,3 +100,16 @@ export interface PostCommentWithPost {
   comment: PostComment;
   post: Post<PostType>;
 }
+
+export interface SavedPostComment extends PostComment {
+  postInfo: {
+    id: string;
+    url: string;
+    title: string;
+  } | null;
+}
+
+export type PostBasicInfo = Pick<
+  Post<PostType>,
+  'id' | 'url' | 'title' | 'author' | 'subreddit'
+>;

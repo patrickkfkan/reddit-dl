@@ -8,6 +8,7 @@ import { openDB } from './Init';
 import { TargetDBMixin } from './Target';
 import { MediaDBMixin } from './Media';
 import { EnvDBMixin } from './Env';
+import { SavedItemDBMixin } from './SavedItem';
 
 export type DBConstructor = new (...args: any[]) => DBBase;
 export type DBInstance = InstanceType<typeof DB>;
@@ -44,8 +45,10 @@ export class DBBase {
 }
 
 const DB = EnvDBMixin(
-  SubredditDBMixin(
-    UserDBMixin(PostDBMixin(TargetDBMixin(MediaDBMixin(DBBase))))
+  SavedItemDBMixin(
+    SubredditDBMixin(
+      UserDBMixin(PostDBMixin(TargetDBMixin(MediaDBMixin(DBBase))))
+    )
   )
 );
 

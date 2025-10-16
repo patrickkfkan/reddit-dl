@@ -273,6 +273,88 @@ const POST_COMMENT_FTS_INIT = `
   END;
 `;
 
+const SAVED_ITEM_FTS_SOURCE_DELETE_SQL = `
+  DELETE FROM saved_item_fts_source
+  WHERE
+    item_id = old.item_id AND
+    item_type = old.item_type AND 
+    saved_by = old.saved_by;
+`;
+const SAVED_ITEM_FTS_SOURCE_INSERT_SQL = `
+  INSERT INTO saved_item_fts_source(item_id, item_type, saved_by, title, body)
+  VALUES(
+    new.item_id,
+    new.item_type,
+    new.saved_by,
+    COALESCE(
+      -- Post
+      json_extract(new.details, '$.data.title'),
+      -- Post comment
+      json_extract(new.details, '$.postInfo.title')
+    ),
+    json_extract(new.details, '$.data.content.text')
+  );
+`;
+const SAVED_ITEM_FTS_DELETE_SQL = `
+  DELETE FROM saved_item_fts WHERE rowid = old.fts_rowid;
+`;
+const SAVED_ITEM_FTS_INSERT_SQL = `
+  INSERT INTO saved_item_fts(rowid, title, body)
+  VALUES (
+    new.fts_rowid,
+    new.title,
+    new.body
+  );
+`;
+const SAVED_ITEM_FTS_INIT = `
+  CREATE TABLE IF NOT EXISTS "saved_item_fts_source" (
+    "fts_rowid" INTEGER,
+    "item_id" TEXT NOT NULL,
+    "item_type" TEXT NOT NULL,
+    "saved_by" TEXT NOT NULL,
+    "title"	TEXT,
+    "body" TEXT,
+    PRIMARY KEY("fts_rowid"),
+    FOREIGN KEY("item_id", "item_type", "saved_by") REFERENCES "saved_item"("item_id", "item_type", "saved_by")
+  );
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS saved_item_fts USING fts5(
+    title,
+    body,
+    content = 'saved_item_fts_source',
+    content_rowid = 'fts_rowid'
+  );
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_ai AFTER INSERT ON saved_item BEGIN
+    ${SAVED_ITEM_FTS_SOURCE_INSERT_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_au AFTER UPDATE ON saved_item BEGIN
+    ${SAVED_ITEM_FTS_SOURCE_DELETE_SQL}
+    ${SAVED_ITEM_FTS_SOURCE_INSERT_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_ad AFTER DELETE ON saved_item BEGIN
+    ${SAVED_ITEM_FTS_SOURCE_DELETE_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_fts_source_ai AFTER INSERT ON saved_item_fts_source BEGIN
+    ${SAVED_ITEM_FTS_INSERT_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_fts_source_bu BEFORE UPDATE ON saved_item_fts_source BEGIN
+    ${SAVED_ITEM_FTS_DELETE_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_fts_source_au AFTER UPDATE ON saved_item_fts_source BEGIN
+    ${SAVED_ITEM_FTS_INSERT_SQL}
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS saved_item_fts_source_bd BEFORE DELETE ON saved_item_fts_source BEGIN
+    ${SAVED_ITEM_FTS_DELETE_SQL}
+  END;
+`;
+
 export function openDB(file: string, logger?: Logger | null) {
   const dbFileExists = existsSync(file);
 
@@ -330,6 +412,10 @@ export function openDB(file: string, logger?: Logger | null) {
         "username"	TEXT,
         "post_count" NUMBER,
         "media_count" NUMBER,
+        -- v1.1.0 --
+        "saved_post_count" NUMBER,
+        "saved_comment_count" NUMBER,
+        ------------
         "karma" NUMBER,
         "details"	TEXT NOT NULL,
         PRIMARY KEY("username")
@@ -545,10 +631,25 @@ export function openDB(file: string, logger?: Logger | null) {
         FOREIGN KEY("media_id") REFERENCES "media"("media_id")
       );
 
+      -- v1.1.0
+      CREATE TABLE IF NOT EXISTS "saved_item" (
+        "item_id"	TEXT,
+        "item_type" TEXT,
+        "saved_by"	TEXT,
+        "item_index" NUMBER,
+        "details" TEXT,
+        PRIMARY KEY("item_id", "item_type", "saved_by"),
+        FOREIGN KEY("saved_by") REFERENCES "user"("username")
+      );
+      
+      CREATE INDEX IF NOT EXISTS "saved_item_by_index_index" ON "saved_item" ("saved_by", "item_index");
+      ------------
+
       ${POST_FTS_INIT}
       ${SUBREDDIT_FTS_INIT}
       ${USER_FTS_INIT}
       ${POST_COMMENT_FTS_INIT}
+      ${SAVED_ITEM_FTS_INIT}
 
       COMMIT;
     `);

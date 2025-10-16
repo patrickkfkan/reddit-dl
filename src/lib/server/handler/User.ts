@@ -2,6 +2,7 @@ import { type WebRequestHandlerConstructor } from '.';
 import { type Request, type Response } from 'express';
 import { type PageElements } from '../../../web/types/PageElements';
 import { type UserListPage } from '../../../web/types/Page';
+import { BrowseURLs } from './BrowseURLs';
 
 export function UserPageWebRequestHandlerMixin<
   TBase extends WebRequestHandlerConstructor
@@ -34,14 +35,21 @@ export function UserPageWebRequestHandlerMixin<
             footerLinks.push({
               title: 'Posts:',
               anchorText: `${counts.post}`,
-              url: this.getUserSubmittedURL(user)
+              url: BrowseURLs.getUserSubmittedURL(user)
             });
           }
           if (counts?.media) {
             footerLinks.push({
               title: 'Media:',
               anchorText: `${counts.media}`,
-              url: this.getUserMediaURL(user)
+              url: BrowseURLs.getUserMediaURL(user)
+            });
+          }
+          if (counts.savedPost + counts.savedComment > 0) {
+            footerLinks.push({
+              title: 'Saved items:',
+              anchorText: String(counts.savedPost + counts.savedComment),
+              url: BrowseURLs.getSavedItemsURL(user)
             });
           }
           return {
@@ -52,9 +60,9 @@ export function UserPageWebRequestHandlerMixin<
               {
                 runs: [
                   {
-                    icon: this.getUserIconURL(user) || undefined,
+                    icon: BrowseURLs.getUserIconURL(user) || undefined,
                     text: `u/${user.username}`,
-                    url: this.getUserOverviewURL(user)
+                    url: BrowseURLs.getUserOverviewURL(user)
                   }
                 ]
               }

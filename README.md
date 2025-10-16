@@ -42,6 +42,10 @@ $ reddit-dl -o "C:\Reddit-Stuff" --comments --post-authors "r/funny"
 // Download a single post
 $ reddit-dl "https://www.reddit.com/r/<subreddit>>/comments/<post_id>/<slug>/"
 
+// Download your saved posts / comments
+// See "Authentication" section for -x option
+$ reddit-dl -x auth.conf "my/saved"
+
 // Download all targets in "targets.txt"
 $ reddit-dl targets.txt
 
@@ -89,6 +93,7 @@ $ reddit-dl [OPTION]... TARGET or FILE
 | `https://www.reddit.com/r/<subreddit>/comments/<post_id>/<slug>/` | Single post from subreddit |
 | `https://www.reddit.com/user/<username>/comments/<post_id>/<slug>/` | Single post by user |
 | `p/<post_id>` | Single post identified by `post_id` |
+| `my/saved` | Your saved posts / comments. Requires [authentication](#authentication). |
 | `previous/<flags>`| Download previous targets matching `flag`, which can be:<ul><li>`r`: previous "subreddit" targets</li><li>`u`: previous "user" targets</li><li>`p`: previous "post" targets</li></ul> Combine `r`, `u` and `p` to specify multiple previous target types. See [Downloading new content since last download](#downloading-new-content-since-last-download) for example usage.</p> |
 
 Multiple targets may be provided in a file. The file must be in plain text format with each target placed on its own line. Lines starting with `#` are ignored.
@@ -99,7 +104,7 @@ Download options:
 |---------|-------|-------------|
 | `--data-dir <dir>` | `-o` | Path to directory where content is saved.<br/>Default: current working directory |
 | `--auth <file>` | `-x` | Path to file containing credentials required for authentication (see [Authentication](#authentication)). |
-| `--limit <number>` | `-n` | The maximum number of posts to download. |
+| `--limit <number>` | `-n` | The maximum number of items to download. |
 | `--after` | `-a` | Download posts created on or after the specified date/time. See [Date range](#date-range). |
 | `--before` | `-b` | Download posts created before (but not on) the specified date/time. See [Date range](#date-range). |
 | `--comments` | | Fetch post comments (may lead to high API usage). See [Comments](#comments). |
@@ -147,7 +152,9 @@ $ reddit-dl --continue
 
 `reddit-dl` retrieves content primarily through API requests. However, Reddit enforces rate limits, restricting the number of requests within a given timeframe. Once the limit is reached, `reddit-dl` will pause downloads until it resets.
                                                                                 
-Authentication provides access to a higher API rate limit. To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to `reddit-dl` using the `--auth` option.
+Authentication provides access to a higher API rate limit. In addition, it allows access to content specific to the authenticated user (`me/...` targets).
+
+To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to `reddit-dl` using the `--auth` / `-x` option.
                                                                                
 You will find detailed instructions in the [sample auth file](./auth.conf).
 

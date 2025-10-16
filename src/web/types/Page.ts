@@ -1,4 +1,5 @@
 import { type ResolvedTarget } from '../../lib/entities/Target';
+import { type SavedItemPageList } from '../../lib/server/handler/SavedItem';
 import { type PageElements } from './PageElements';
 
 export type SearchContext =
@@ -38,6 +39,11 @@ export interface OverviewPage extends PageBase {
     total: number;
     viewAllURL: string;
   };
+  recentSavedItems?: {
+    items: SavedItemPageList['items'];
+    total: number;
+    viewAllURL: string;
+  };
 }
 
 export interface PostListPage extends PageBase {
@@ -63,6 +69,13 @@ export interface TargetListPage extends PageBase {
 
 export interface UserListPage extends PageBase {
   users: PageElements.Card<'String'>[];
+}
+
+export interface SavedItemListPage extends PageBase {
+  items: (
+    | PageElements.Card<'Post'>
+    | PageElements.Card<'WrappedPostComment'>
+  )[];
 }
 
 export interface PostCommentsSection {
@@ -91,11 +104,11 @@ export interface TargetResultsPage extends PageBase {
 }
 
 export interface SearchPostCommentResultsPage extends PageBase {
-  comments: PageElements.Card<'SearchPostCommentResult'>[];
+  comments: PageElements.Card<'WrappedPostComment'>[];
 }
 
 export type SearchResultsTab = {
-  name: 'posts' | 'subreddits' | 'users' | 'post_comments';
+  name: 'posts' | 'subreddits' | 'users' | 'post_comments' | 'saved_items';
   title: string;
   url: string;
 } & (
@@ -120,6 +133,11 @@ export type SearchResultsTab = {
       page: SearchPostCommentResultsPage;
     }
   | {
+      name: 'saved_items';
+      isCurrent: true;
+      page: SavedItemListPage;
+    }
+  | {
       isCurrent: false;
     }
 );
@@ -139,4 +157,5 @@ export type Page =
   | TargetListPage
   | UserListPage
   | SearchPostCommentResultsPage
-  | SearchResultsPage;
+  | SearchResultsPage
+  | SavedItemListPage;

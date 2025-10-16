@@ -70,7 +70,7 @@ function ContentCard({
       case 'MediaItemTooltip':
         el = <MediaItemTooltipCardBody data={data.body.content} />;
         break;
-      case 'SearchPostCommentResult':
+      case 'WrappedPostComment':
         el = <ContentCard data={data.body.content} />;
         break;
       case 'String':

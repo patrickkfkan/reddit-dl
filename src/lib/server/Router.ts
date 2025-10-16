@@ -94,7 +94,8 @@ class WebRequestRouter {
         view !== 'submitted' &&
         view !== 'media' &&
         view !== 'overview' &&
-        view !== 'search'
+        view !== 'search' &&
+        view !== 'saved'
       ) {
         throw Error(`Unknown value "${view}" for param "view"`);
       }
@@ -121,6 +122,12 @@ class WebRequestRouter {
           });
         case 'search':
           return this.#handler.handleSearchPageRequest({
+            username: req.params.username,
+            req,
+            res
+          });
+        case 'saved':
+          return this.#handler.handleSavedItemPageRequest({
             username: req.params.username,
             req,
             res

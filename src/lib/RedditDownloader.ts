@@ -30,6 +30,12 @@ import type Bottleneck from 'bottleneck';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import { DEFAULT_LIMITER_NAME } from './utils/Constants.js';
+import { type SavedItem, type SavedItemType } from './entities/SavedItem.js';
+import {
+  type ProcessSavedItemParams,
+  SavedItemProcessorMixin
+} from './core/SavedItemProcessor.js';
+import { type FetchSavedItemsResult } from './api/Post.js';
 
 export type DownloadTargetType =
   | 'userGalleries'
@@ -340,6 +346,16 @@ export class RedditDownloaderBase {
     });
   }
 
+  protected processSavedItem<T extends SavedItemType>(
+    params: ProcessSavedItemParams<T>
+  ): Promise<{ processedItem: SavedItem<T> | null }> {
+    // To be fulfilled by mixin
+    return Promise.resolve({
+      continue: true,
+      processedItem: params.item
+    });
+  }
+
   async #process(target: string, stats: TargetDownloadStats) {
     const runTimestamp = new Date().getTime();
     const postId =
@@ -349,6 +365,8 @@ export class RedditDownloaderBase {
       postId ? 'post'
       : target.startsWith('u/') ? 'user'
       : target.startsWith('r/') ? 'subreddit'
+      : target === 'my/saved' ? 'my_saved'
+      : target === 'my/joined' ? 'my_joined'
       : null;
     const api = await this.getAPI();
     const db = await this.getDB();
@@ -424,7 +442,7 @@ export class RedditDownloaderBase {
         let processed = 0;
         let counter = 1;
         while (firstRun || continuation) {
-          if (this.#postLimitReached(processed)) {
+          if (this.#limitReached(processed)) {
             return;
           }
           this.log(
@@ -447,7 +465,7 @@ export class RedditDownloaderBase {
             break;
           }
           for (const post of posts) {
-            if (this.#postLimitReached(processed)) {
+            if (this.#limitReached(processed)) {
               return;
             }
             this.log('info', `#${counter} - (${post.id}) ${post.title}`);
@@ -506,7 +524,7 @@ export class RedditDownloaderBase {
         let processed = 0;
         let counter = 1;
         while (firstRun || continuation) {
-          if (this.#postLimitReached(processed)) {
+          if (this.#limitReached(processed)) {
             return;
           }
           this.log(
@@ -529,7 +547,7 @@ export class RedditDownloaderBase {
             break;
           }
           for (const post of posts) {
-            if (this.#postLimitReached(processed)) {
+            if (this.#limitReached(processed)) {
               return;
             }
             this.log('info', `#${counter} - (${post.id}) ${post.title}`);
@@ -555,15 +573,198 @@ export class RedditDownloaderBase {
         }
         break;
       }
+      case 'my_saved': {
+        if (!this.config.oauth) {
+          throw Error(`Target "${target}" requires authentication`);
+        }
+        this.log(
+          'info',
+          `Fetching profile associated with auth credentials...`
+        );
+        let me = await Abortable.wrap(() => api.fetchMe());
+        this.log('debug', `Fetched user "${me.username}"`);
+
+        const resolvedTarget: ResolvedTarget = {
+          type: 'me',
+          rawValue: target,
+          runTimestamp,
+          me
+        };
+        if (this.config.saveTargetToDB) {
+          db.saveTarget(resolvedTarget);
+          this.log('info', `Saved target info`);
+        }
+
+        resolvedTarget.me = me = await Abortable.wrap(() =>
+          this.processUser(me, stats)
+        );
+
+        // Need to save target again because user would now have downloaded
+        // image info
+        if (this.config.saveTargetToDB) {
+          db.saveTarget(resolvedTarget);
+        }
+
+        const lastFetched =
+          db.getSavedItems({
+            savedBy: me,
+            sortBy: 'mostRecentlySaved',
+            limit: 1,
+            offset: 0
+          })[0] || null;
+
+        let firstRun = true;
+        let continuation: string | undefined = undefined;
+
+        // --continue option:
+        // If we have last fetched item, we can fetch up to that and set index
+        // of the newer items continuing from the last-fetched index.
+        // Otherwise, we would have to fetch all of them and set index starting from 0.
+        // This is because Reddit API does not provide a "saveDate" value and
+        // we need to show items in the same order as returned by the API.
+
+        const fetchedItems: FetchSavedItemsResult['items'] = [];
+        let saveIndex = 0;
+
+        while (firstRun || continuation) {
+          this.log(
+            'info',
+            `Fetching ${firstRun ? '' : 'next batch of '}saved posts / comments...`
+          );
+          firstRun = false;
+          const { items, errorCount, after } = await Abortable.wrap(() =>
+            api.fetchSavedItems({
+              user: me,
+              after: continuation
+            })
+          );
+          stats.errorCount += errorCount;
+          if (items.length === 0) {
+            this.log(
+              'warn',
+              `No ${firstRun ? '' : 'more '} items found for "${target}"`
+            );
+            break;
+          }
+          const indexOfLastFetched =
+            lastFetched ?
+              items.findIndex((item) => {
+                switch (item.type) {
+                  case 'post':
+                    return (
+                      lastFetched.type === 'post' &&
+                      item.post.id === lastFetched.data.id
+                    );
+                  case 'postComment':
+                    return (
+                      lastFetched.type === 'postComment' &&
+                      item.comment.id === lastFetched.data.id
+                    );
+                }
+              })
+            : -1;
+          if (indexOfLastFetched >= 0 && this.config.continue) {
+            this.log(
+              'info',
+              ':: Arrived at previously fetched item - not proceeding further because "--continue" option was specified'
+            );
+            saveIndex = lastFetched.index + 1;
+            items.splice(indexOfLastFetched);
+            fetchedItems.push(...items);
+            break;
+          }
+          fetchedItems.push(...items);
+          continuation = after || undefined;
+        }
+
+        if (fetchedItems.length === 0) {
+          this.log('info', ':: No items to process');
+          return;
+        }
+
+        let processed = 0;
+        let counter = 1;
+        for (const item of fetchedItems.slice().reverse()) {
+          if (this.#limitReached(processed)) {
+            return;
+          }
+          let processedItem: SavedItem<any> | null = null;
+          switch (item.type) {
+            case 'postComment': {
+              this.log(
+                'info',
+                `#${counter} - (${item.comment.id}) Comment on post "${item.postId}"`
+              );
+              let post = item.postId ? db.getPost(item.postId) : null;
+              if (!post && item.postId) {
+                this.log('info', ':: Fetch commented post');
+                const postId = item.postId;
+                const { post: fetchedPost, errorCount } = await Abortable.wrap(
+                  () => api.fetchPostById(postId, this.config.fetchPostAuthors)
+                );
+                post = fetchedPost;
+                stats.errorCount += errorCount;
+              }
+              ({ processedItem } = await Abortable.wrap(() =>
+                this.processSavedItem({
+                  item: {
+                    type: 'postComment',
+                    data: item.comment,
+                    postInfo:
+                      post ?
+                        {
+                          id: post.id,
+                          url: post.url,
+                          title: post.title,
+                          author: post.author,
+                          subreddit: post.subreddit
+                        }
+                      : null,
+                    index: saveIndex
+                  },
+                  post,
+                  savedBy: me,
+                  stats
+                })
+              ));
+              saveIndex++;
+              break;
+            }
+            case 'post': {
+              const { post } = item;
+              this.log('info', `#${counter} - (${post.id}) ${post.title}`);
+              ({ processedItem } = await Abortable.wrap(() =>
+                this.processSavedItem({
+                  item: {
+                    type: 'post',
+                    data: post,
+                    index: saveIndex
+                  },
+                  savedBy: me,
+                  stats
+                })
+              ));
+              saveIndex++;
+              break;
+            }
+          }
+          counter++;
+          if (processedItem) {
+            processed++;
+            stats.processedPostCount++;
+          }
+        }
+        break;
+      }
 
       default:
         throw Error(`Unknown target "${target}"`);
     }
   }
 
-  #postLimitReached(processed: number) {
+  #limitReached(processed: number) {
     if (this.config.limit !== null && processed >= this.config.limit) {
-      this.log('info', '** Specified post limit reached **');
+      this.log('info', '** Specified item limit reached **');
       return true;
     }
     return false;
@@ -638,9 +839,11 @@ export class RedditDownloaderBase {
   }
 }
 
-const RedditDownloader = PostProcessorMixin(
-  SubredditProcessorMixin(
-    UserProcessorMixin(MediaDownloaderMixin(RedditDownloaderBase))
+const RedditDownloader = SavedItemProcessorMixin(
+  PostProcessorMixin(
+    SubredditProcessorMixin(
+      UserProcessorMixin(MediaDownloaderMixin(RedditDownloaderBase))
+    )
   )
 );
 

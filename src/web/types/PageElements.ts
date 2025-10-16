@@ -31,15 +31,14 @@ export namespace PageElements {
     | 'Post'
     | 'PostComment'
     | 'MediaItemTooltip'
-    | 'SearchPostCommentResult';
+    | 'WrappedPostComment';
 
   export type CardBodyContent<T extends CardType> =
     T extends 'String' ? CardBodyContent.String
     : T extends 'Post' ? CardBodyContent.Post
     : T extends 'PostComment' ? CardBodyContent.PostComment
     : T extends 'MediaItemTooltip' ? CardBodyContent.MediaItemtooltip
-    : T extends 'SearchPostCommentResult' ?
-      CardBodyContent.SearchPostCommentResult
+    : T extends 'WrappedPostComment' ? CardBodyContent.WrappedPostComment
     : never;
 
   export interface Card<T extends CardType> {
@@ -61,7 +60,7 @@ export namespace PageElements {
     | Card<'Post'>
     | Card<'PostComment'>
     | Card<'MediaItemTooltip'>
-    | Card<'SearchPostCommentResult'>;
+    | Card<'WrappedPostComment'>;
 
   export interface MediaGallery {
     class?: string;
@@ -93,7 +92,7 @@ export namespace PageElements {
       replies?: PostCommentsSection;
     }
 
-    export type SearchPostCommentResult = PageElements.Card<'PostComment'>;
+    export type WrappedPostComment = PageElements.Card<'PostComment'>;
   }
 
   export interface MediaGalleryItem {

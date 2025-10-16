@@ -7,6 +7,7 @@ import {
   type TargetListPage
 } from '../../../web/types/Page';
 import { type ResolvedTarget } from '../../entities/Target';
+import { BrowseURLs } from './BrowseURLs';
 
 export interface GetTargetListPageParams {
   type?: ResolvedTarget['type'] | 'all';
@@ -22,7 +23,8 @@ export function TargetPageWebRequestHandlerMixin<
         all: this.db.getTargetCount(),
         subreddit_posts: this.db.getTargetCount('subreddit_posts'),
         user_submitted: this.db.getTargetCount('user_submitted'),
-        post: this.db.getTargetCount('post')
+        post: this.db.getTargetCount('post'),
+        me: this.db.getTargetCount('me')
       };
       if (!counts.all) {
         res.json({
@@ -80,6 +82,16 @@ export function TargetPageWebRequestHandlerMixin<
           )
         );
       }
+      if (counts.me && counts.me > 0) {
+        tabs.push(
+          this.#createTargetResultsTab(
+            req,
+            'me',
+            'Me',
+            currentTabName === 'me'
+          )
+        );
+      }
 
       if (tabs.length === 2) {
         tabs.splice(1);
@@ -95,7 +107,7 @@ export function TargetPageWebRequestHandlerMixin<
     }
 
     #validateTabName(value: string): value is TargetResultsTab['name'] {
-      return ['all', 'user_submitted', 'subreddit_posts', 'post'].includes(
+      return ['all', 'user_submitted', 'subreddit_posts', 'post', 'me'].includes(
         value
       );
     }
@@ -155,11 +167,19 @@ export function TargetPageWebRequestHandlerMixin<
       const subredditPostsTargets = targets.filter(
         (target) => target.type === 'subreddit_posts'
       );
+      const meTargets = targets.filter((target) => target.type === 'me');
+      const usernamesFromTargets = [
+        ...userSubmittedTargets.map((target) => target.user),
+        ...meTargets.map((target) => target.me)
+      ].reduce<string[]>((result, { username }) => {
+        if (!result.includes(username)) {
+          result.push(username);
+        }
+        return result;
+      }, []);
       const countsForUser =
-        userSubmittedTargets.length > 0 ?
-          this.db.getCountsForUser(
-            userSubmittedTargets.map((t) => t.user.username)
-          )
+        usernamesFromTargets.length > 0 ?
+          this.db.getCountsForUser(usernamesFromTargets)
         : {};
       const countsForSubreddit =
         subredditPostsTargets.length > 0 ?
@@ -185,20 +205,20 @@ export function TargetPageWebRequestHandlerMixin<
               footerLinks.push({
                 title: 'Posts:',
                 anchorText: String(counts.post),
-                url: this.getUserSubmittedURL(target.user)
+                url: BrowseURLs.getUserSubmittedURL(target.user)
               });
             }
             if (counts.media) {
               footerLinks.push({
                 title: 'Media:',
                 anchorText: String(counts.media),
-                url: this.getUserMediaURL(target.user)
+                url: BrowseURLs.getUserMediaURL(target.user)
               });
             }
             title = {
-              icon: this.getUserIconURL(target.user) || undefined,
+              icon: BrowseURLs.getUserIconURL(target.user) || undefined,
               text: target.rawValue,
-              url: this.getUserOverviewURL(target.user)
+              url: BrowseURLs.getUserOverviewURL(target.user)
             };
             break;
           }
@@ -210,20 +230,21 @@ export function TargetPageWebRequestHandlerMixin<
               footerLinks.push({
                 title: 'Posts:',
                 anchorText: String(counts.post),
-                url: this.getSubredditPostsURL(target.subreddit)
+                url: BrowseURLs.getSubredditPostsURL(target.subreddit)
               });
             }
             if (counts.media) {
               footerLinks.push({
                 title: 'Media:',
                 anchorText: String(counts.media),
-                url: this.getSubredditMediaURL(target.subreddit)
+                url: BrowseURLs.getSubredditMediaURL(target.subreddit)
               });
             }
             title = {
-              icon: this.getSubredditIconURL(target.subreddit) || undefined,
+              icon:
+                BrowseURLs.getSubredditIconURL(target.subreddit) || undefined,
               text: target.rawValue,
-              url: this.getSubredditOverviewURL(target.subreddit)
+              url: BrowseURLs.getSubredditOverviewURL(target.subreddit)
             };
             break;
           }
@@ -232,12 +253,30 @@ export function TargetPageWebRequestHandlerMixin<
             targetTypeName = 'Post';
             title = {
               text: target.post.title,
-              url: this.getPostURL(target.post)
+              url: BrowseURLs.getPostURL(target.post)
             };
             footerLinks.push({
               anchorText: 'View post',
-              url: this.getPostURL(target.post)
+              url: BrowseURLs.getPostURL(target.post)
             });
+            break;
+          }
+          case 'me': {
+            targetId = `me:${target.me.username}`;
+            targetTypeName = 'Me';
+            title = {
+              icon: BrowseURLs.getUserIconURL(target.me) || undefined,
+              text: `u/${target.me.username}`,
+              url: BrowseURLs.getUserOverviewURL(target.me)
+            };
+            const counts = countsForUser[target.me.username] || {};
+            if (counts.savedPost + counts.savedComment > 0) {
+              footerLinks.push({
+                title: 'Saved items:',
+                anchorText: String(counts.savedPost + counts.savedComment),
+                url: BrowseURLs.getSavedItemsURL(target.me)
+              });
+            }
             break;
           }
         }

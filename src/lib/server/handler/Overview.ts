@@ -4,6 +4,8 @@ import { type MediaPageList } from './Media';
 import { type PostPageList } from './Post';
 import { type PageElements } from '../../../web/types/PageElements';
 import { type OverviewPage, type SearchContext } from '../../../web/types/Page';
+import { BrowseURLs } from './BrowseURLs';
+import { type SavedItemPageList } from './SavedItem';
 
 export function OverviewPageWebRequestHandlerMixin<
   TBase extends CommonWebRequestHandlerConstructor
@@ -27,9 +29,11 @@ export function OverviewPageWebRequestHandlerMixin<
       let banner: PageElements.Banner;
       let postList: PostPageList;
       let mediaList: MediaPageList<any>;
+      let savedItemList: SavedItemPageList | undefined = undefined;
       let viewAllURL: {
         posts: string;
         media: string;
+        saved?: string;
       };
       let searchContext: SearchContext;
 
@@ -51,8 +55,8 @@ export function OverviewPageWebRequestHandlerMixin<
           const subreddit = _mediaList.subreddit;
           banner = this.getSubredditBanner(subreddit);
           viewAllURL = {
-            posts: this.getSubredditPostsURL(subreddit),
-            media: this.getSubredditMediaURL(subreddit)
+            posts: BrowseURLs.getSubredditPostsURL(subreddit),
+            media: BrowseURLs.getSubredditMediaURL(subreddit)
           };
           searchContext = {
             target: 'in_subreddit',
@@ -75,10 +79,17 @@ export function OverviewPageWebRequestHandlerMixin<
             offset: 0
           }));
           const user = _mediaList.user;
+          savedItemList = this.getSavedItemList({
+            username: target,
+            sortBy: 'mostRecentlySaved',
+            limit: 5,
+            offset: 0
+          });
           banner = this.getUserBanner(user);
           viewAllURL = {
-            posts: this.getUserSubmittedURL(user),
-            media: this.getUserMediaURL(user)
+            posts: BrowseURLs.getUserSubmittedURL(user),
+            media: BrowseURLs.getUserMediaURL(user),
+            saved: BrowseURLs.getSavedItemsURL(user)
           };
           searchContext = {
             target: 'by_user',
@@ -100,6 +111,14 @@ export function OverviewPageWebRequestHandlerMixin<
           total: mediaList.total,
           viewAllURL: viewAllURL.media
         },
+        recentSavedItems:
+          savedItemList && viewAllURL.saved ?
+            {
+              items: savedItemList.items,
+              total: savedItemList.total,
+              viewAllURL: viewAllURL.saved
+            }
+          : undefined,
         searchContext
       } satisfies OverviewPage);
     }

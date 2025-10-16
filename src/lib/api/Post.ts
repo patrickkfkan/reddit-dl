@@ -23,6 +23,12 @@ const REDDIT_IMAGE_DOMAIN = 'i.redd.it';
 const REDDIT_VIDEO_DOMAIN = 'v.redd.it';
 const KNOWN_BOGUS_THUMBNAIL_SOURCES = ['nsfw', 'spoiler', 'default'];
 
+export interface FetchSavedItemsParams {
+  user: User;
+  after?: string;
+  limit?: number;
+}
+
 export interface FetchPostsByUserParams {
   user: User;
   sortBy?: 'hot' | 'new' | 'top' | 'controversial';
@@ -39,6 +45,15 @@ export interface FetchPostsBySubredditParams {
 
 export interface FetchPostsResult {
   posts: Post<PostType>[];
+  after: string | null;
+  errorCount: number;
+}
+
+export interface FetchSavedItemsResult {
+  items: (
+    | { type: 'post'; post: Post<PostType> }
+    | { type: 'postComment'; comment: PostComment; postId: string | null }
+  )[];
   after: string | null;
   errorCount: number;
 }
@@ -220,6 +235,121 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           this.log(
             'error',
             `Failed to fetch posts from subreddit ${subreddit.name}:`,
+            error
+          );
+        }
+        throw error;
+      }
+    }
+
+    async fetchSavedItems(
+      params: FetchSavedItemsParams
+    ): Promise<FetchSavedItemsResult> {
+      const { user, after, limit = MAX_LIMIT } = params;
+      try {
+        const { json: data } = await this.defaultLimiter.schedule(() =>
+          Abortable.wrap((signal) =>
+            this.fetcher.fetchAPI({
+              endpoint: `/user/${user.username}/saved.json`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                limit: String(limit),
+                after: after || null
+              },
+              signal
+            })
+          )
+        );
+        const children = ObjectHelper.getProperty(data, 'data.children');
+        if (!Array.isArray(children)) {
+          throw new TypeError('data.children is not an array');
+        }
+        const mappedPostResults = await Promise.all(
+          children.map((child) =>
+            Abortable.wrap(async () => {
+              const kind = ObjectHelper.getProperty(child, 'kind');
+              if (kind === 't1') {
+                // t1: comment
+                const linkId = ObjectHelper.getProperty(child, 'data.link_id');
+                const postId =
+                  typeof linkId === 'string' ?
+                    linkId.startsWith('t3_') ?
+                      linkId.substring(3)
+                    : linkId
+                  : null;
+                const stats = { count: 0, errorCount: 0 };
+                const comment = (
+                  await this.#mapPostCommentData(postId, [child], stats, false)
+                )[0];
+                return {
+                  item: {
+                    type: 'postComment' as const,
+                    comment: comment,
+                    postId
+                  },
+                  errorCount: stats.errorCount
+                };
+              }
+              // Post
+              const { post, errorCount } = await this.#mapPostData(
+                child,
+                null,
+                null,
+                this.config.fetchPostAuthors
+              );
+              return {
+                item: {
+                  type: 'post' as const,
+                  post
+                },
+                errorCount
+              };
+            })
+          )
+        );
+        const errorCount = mappedPostResults.reduce<number>(
+          (result, { errorCount }) => result + errorCount,
+          0
+        );
+        const items = mappedPostResults.reduce<FetchSavedItemsResult['items']>(
+          (result, { item }) => {
+            switch (item.type) {
+              case 'post': {
+                if (item.post) {
+                  result.push({
+                    type: 'post',
+                    post: item.post
+                  });
+                }
+                break;
+              }
+              case 'postComment': {
+                if (item.comment) {
+                  result.push({
+                    type: 'postComment',
+                    comment: item.comment,
+                    postId: item.postId
+                  });
+                }
+              }
+            }
+            return result;
+          },
+          []
+        );
+        const dataAfter = ObjectHelper.getProperty(data, 'data.after') || null;
+
+        return {
+          items: items satisfies FetchSavedItemsResult['items'],
+          errorCount,
+          after: dataAfter
+        };
+      } catch (error) {
+        if (!(error instanceof AbortError)) {
+          this.log(
+            'error',
+            `Failed to fetch saved items for user ${user.username}:`,
             error
           );
         }
@@ -816,9 +946,10 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
     }
 
     async #mapPostCommentData(
-      postId: string,
+      postId: string | null,
       children: any[],
-      stats: FetchCommentsStats
+      stats: FetchCommentsStats,
+      mapReplies = true
     ) {
       return children.reduce<Promise<PostComment[]>>(async (_result, child) => {
         const result = await _result;
@@ -830,7 +961,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
               'warn',
               `More comments expected, but data.children is not an array`
             );
-          } else if (more.length > 0) {
+          } else if (more.length > 0 && postId) {
             result.push(
               ...(await Abortable.wrap(() =>
                 this.#fetchMorePostComments(postId, more, stats)
@@ -840,10 +971,10 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
         } else {
           const permalink = ObjectHelper.getProperty(child, 'data.permalink');
           const url = permalink ? validateURL(permalink, SITE_URL) : false;
-          const repliesData = ObjectHelper.getProperty(
-            child,
-            'data.replies.data.children'
-          );
+          const repliesData =
+            mapReplies ?
+              ObjectHelper.getProperty(child, 'data.replies.data.children')
+            : null;
           const replies =
             Array.isArray(repliesData) ?
               await this.#mapPostCommentData(postId, repliesData, stats)

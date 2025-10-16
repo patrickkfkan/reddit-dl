@@ -127,6 +127,8 @@ export function TargetDBMixin<TBase extends DBConstructor>(Base: TBase) {
           return `subreddit.posts:${details.subreddit.id}`;
         case 'post':
           return `post:${details.post.id}`;
+        case 'me':
+          return `me:${details.me.username}`;
       }
     }
   };

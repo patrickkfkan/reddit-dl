@@ -45,7 +45,9 @@ export function SearchPageWebRequestHandlerMixin<
           search,
           username,
           subreddit?.id
-        )
+        ),
+        savedItems:
+          username ? this.db.getSavedItemCount(username, search) : null
       };
 
       if (!currentTabName) {
@@ -54,6 +56,7 @@ export function SearchPageWebRequestHandlerMixin<
           : counts.subreddit && counts.subreddit > 0 ? 'subreddits'
           : counts.user && counts.user > 0 ? 'users'
           : counts.comments && counts.comments > 0 ? 'post_comments'
+          : counts.savedItems && counts.savedItems > 0 ? 'saved_items'
           : undefined;
       }
 
@@ -150,6 +153,22 @@ export function SearchPageWebRequestHandlerMixin<
                 subredditName,
                 author: username,
                 req
+              })
+          )
+        );
+      }
+      if (username && counts.savedItems && counts.savedItems > 0) {
+        tabs.push(
+          this.#createSearchResultsTab(
+            req,
+            search,
+            'saved_items',
+            'Saved',
+            currentTabName === 'saved_items',
+            () =>
+              this.getSavedItemListPage({
+                req,
+                username
               })
           )
         );

@@ -24,6 +24,8 @@ export type DBGetUsersParams = {
 export interface CountsForUser {
   media: number;
   post: number;
+  savedPost: number;
+  savedComment: number;
 }
 
 export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
@@ -37,9 +39,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           this.log('debug', `INSERT user "${user.username}"`);
           this.db
             .prepare(
-              `INSERT INTO user (username, post_count, media_count, karma, details) VALUES (?, ?, ?, ?, ?)`
+              `INSERT INTO user (username, post_count, media_count, saved_post_count, saved_comment_count, karma, details) VALUES (?, ?, ?, ?, ?, ?, ?)`
             )
-            .run(user.username, 0, 0, user.karma, JSON.stringify(user));
+            .run(user.username, 0, 0, 0, 0, user.karma, JSON.stringify(user));
         } else {
           this.log('debug', `UPDATE user "${user.username}"`);
           this.db
@@ -129,7 +131,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           SELECT
             user.details,
             user.post_count,
-            user.media_count
+            user.media_count,
+            user.saved_post_count,
+            user.saved_comment_count
           ${fromClause}
           ${whereClause}
           ${orderByClause}
@@ -140,12 +144,16 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           details: string;
           post_count: number | null;
           media_count: number | null;
+          saved_post_count: number | null;
+          saved_comment_count: number | null;
         }[];
         return rows.map<UserWithCounts>((row) => ({
           user: JSON.parse(row.details),
           counts: {
             post: row.post_count || 0,
-            media: row.media_count || 0
+            media: row.media_count || 0,
+            savedPost: row.saved_post_count || 0,
+            savedComment: row.saved_comment_count || 0
           }
         }));
       } catch (error) {
@@ -189,6 +197,8 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
             SELECT
               user.username,
               user.media_count,
+              user.saved_post_count,
+              user.saved_comment_count,
               ${postCountSql} AS post_count
             FROM
               user
@@ -200,18 +210,24 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           username: string;
           media_count: number;
           post_count: number;
+          saved_post_count: number | null;
+          saved_comment_count: number | null;
         }[];
         const mapped = rows.map((row) => ({
           username: row.username,
           media: row.media_count,
-          post: row.post_count
+          post: row.post_count,
+          savedPost: row.saved_post_count || 0,
+          savedComment: row.saved_comment_count || 0
         }));
         if (isMultiple) {
           const result: Record<string, CountsForUser> = {};
           for (const counts of mapped) {
             result[counts.username] = {
               media: counts.media,
-              post: counts.post
+              post: counts.post,
+              savedPost: counts.savedPost,
+              savedComment: counts.savedComment
             };
           }
           return result;
@@ -219,7 +235,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
         return mapped.length > 0 ?
             {
               media: mapped[0].media,
-              post: mapped[0].post
+              post: mapped[0].post,
+              savedPost: mapped[0].savedPost,
+              savedComment: mapped[0].savedComment
             }
           : null;
       } catch (error) {

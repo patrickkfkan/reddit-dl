@@ -8,6 +8,7 @@ import PostListPage from './PostListPage';
 import SubredditListPage from './SubredditListPage';
 import UserListPage from './UserListPage';
 import SearchPostCommentResultsPage from './SearchPostCommentResultsPage';
+import SavedItemListPage from './SavedItemListPage';
 
 function SearchResultsPage() {
   const { settings } = useBrowseSettings();
@@ -70,6 +71,9 @@ function SearchResultsPage() {
             page={currentTab.page}
             className="px-0"
           />
+        )}
+        {currentTab && currentTab.name === 'saved_items' && (
+          <SavedItemListPage page={currentTab.page} className="px-0" />
         )}
       </>
     );

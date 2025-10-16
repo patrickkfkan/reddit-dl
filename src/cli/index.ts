@@ -352,7 +352,9 @@ export default class RedditDownloaderCLI {
           !target.startsWith('r/') &&
           !target.startsWith('u/') &&
           !target.startsWith('p/') &&
-          !getPostIdFromURL(target)
+          !getPostIdFromURL(target) &&
+          target !== 'my/saved' &&
+          target !== 'my/joined'
         ) {
           throw Error(
             'Target must start with "r/" or "u/", or be a link to a Reddit post'

@@ -11,19 +11,16 @@ import { TargetPageWebRequestHandlerMixin } from './Target';
 import { EOL } from 'os';
 import markdownit from 'markdown-it';
 import { OverviewPageWebRequestHandlerMixin } from './Overview';
-import {
-  type PostComment,
-  type Post,
-  type PostType
-} from '../../entities/Post';
+
 import { SubredditPageWebRequestHandlerMixin } from './Subreddit';
 import { UserPageWebRequestHandlerMixin } from './User';
 import { type PageElements } from '../../../web/types/PageElements';
-import { SITE_URL } from '../../utils/Constants';
 import { SettingsWebRequestHandlerMixin } from './Settings';
 import { SearchPageWebRequestHandlerMixin } from './Search';
 import { sanitizeHTML } from '../../utils/Misc';
 import { PostCommentWebRequestHandlerMixin } from './PostComment';
+import { BrowseURLs } from './BrowseURLs';
+import { SavedItemPageWebRequestHandlerMixin } from './SavedItem';
 
 export interface PaginationParams {
   limit: number;
@@ -69,65 +66,6 @@ export class WebRequestHandlerBase {
     this.db = db;
     this.dataDir = dataDir;
     this.logger = logger;
-  }
-
-  protected getMediaURL(type: 'image' | 'video', file?: string | null) {
-    if (!file) {
-      return null;
-    }
-    const params = new URLSearchParams({
-      file
-    });
-    return `/${type}?${params.toString()}`;
-  }
-
-  protected getStaticImageURL(file: string) {
-    return `/assets/images/${file}`;
-  }
-
-  protected getSubredditIconURL(subreddit: Subreddit) {
-    return this.getMediaURL('image', subreddit.icon?.downloaded?.path);
-  }
-
-  protected getUserIconURL(user: User) {
-    return this.getMediaURL(
-      'image',
-      user.avatar?.downloaded?.path || user.icon?.downloaded?.path
-    );
-  }
-
-  protected getUserOverviewURL(user: User) {
-    return `/u/${user.username}`;
-  }
-
-  protected getUserSubmittedURL(user: User) {
-    return `/u/${user.username}/submitted`;
-  }
-
-  protected getUserMediaURL(user: User) {
-    return `/u/${user.username}/media`;
-  }
-
-  protected getSubredditOverviewURL(subreddit: Subreddit) {
-    return `/r/${subreddit.name}`;
-  }
-
-  protected getSubredditPostsURL(subreddit: Subreddit) {
-    return `/r/${subreddit.name}/posts`;
-  }
-
-  protected getSubredditMediaURL(subreddit: Subreddit) {
-    return `/r/${subreddit.name}/media`;
-  }
-
-  protected getPostURL(post: Post<PostType>) {
-    return `/post/${post.id}`;
-  }
-
-  protected getRedditURL(
-    target: Post<PostType> | Subreddit | User | PostComment
-  ) {
-    return target.url ? new URL(target.url, SITE_URL).toString() : null;
   }
 
   protected getPaginationParams(
@@ -413,12 +351,12 @@ export class WebRequestHandlerBase {
 
   protected getSubredditBanner(subreddit: Subreddit): PageElements.Banner {
     return {
-      icon: this.getSubredditIconURL(subreddit),
+      icon: BrowseURLs.getSubredditIconURL(subreddit),
       title: {
         text: `r/${subreddit.name}`,
-        url: this.getSubredditOverviewURL(subreddit)
+        url: BrowseURLs.getSubredditOverviewURL(subreddit)
       },
-      externalURL: this.getRedditURL(subreddit),
+      externalURL: BrowseURLs.getRedditURL(subreddit),
       caption: subreddit.title !== subreddit.name ? subreddit.title : '',
       shortDescription: subreddit.shortDescription,
       description: this.convertRedditTextifiedToHTML(subreddit.description)
@@ -427,12 +365,12 @@ export class WebRequestHandlerBase {
 
   protected getUserBanner(user: User): PageElements.Banner {
     return {
-      icon: this.getUserIconURL(user),
+      icon: BrowseURLs.getUserIconURL(user),
       title: {
         text: `u/${user.username}`,
-        url: this.getUserOverviewURL(user)
+        url: BrowseURLs.getUserOverviewURL(user)
       },
-      externalURL: this.getRedditURL(user),
+      externalURL: BrowseURLs.getRedditURL(user),
       caption: user.title !== user.username ? user.title : '',
       shortDescription: user.description,
       description: ''
@@ -449,9 +387,11 @@ export class WebRequestHandlerBase {
   }
 }
 
-const CommonWebRequestHandler = PostCommentWebRequestHandlerMixin(
-  PostPageWebRequestHandlerMixin(
-    MediaWebRequestHandlerMixin(WebRequestHandlerBase)
+const CommonWebRequestHandler = SavedItemPageWebRequestHandlerMixin(
+  PostCommentWebRequestHandlerMixin(
+    PostPageWebRequestHandlerMixin(
+      MediaWebRequestHandlerMixin(WebRequestHandlerBase)
+    )
   )
 );
 

@@ -2,6 +2,7 @@ import { type WebRequestHandlerConstructor } from '.';
 import { type Request, type Response } from 'express';
 import { type PageElements } from '../../../web/types/PageElements';
 import { type SubredditListPage } from '../../../web/types/Page';
+import { BrowseURLs } from './BrowseURLs';
 
 export function SubredditPageWebRequestHandlerMixin<
   TBase extends WebRequestHandlerConstructor
@@ -34,14 +35,14 @@ export function SubredditPageWebRequestHandlerMixin<
             footerLinks.push({
               title: 'Posts:',
               anchorText: `${counts.post}`,
-              url: this.getSubredditPostsURL(subreddit)
+              url: BrowseURLs.getSubredditPostsURL(subreddit)
             });
           }
           if (counts?.media) {
             footerLinks.push({
               title: 'Media:',
               anchorText: `${counts.media}`,
-              url: this.getSubredditMediaURL(subreddit)
+              url: BrowseURLs.getSubredditMediaURL(subreddit)
             });
           }
           return {
@@ -52,9 +53,10 @@ export function SubredditPageWebRequestHandlerMixin<
               {
                 runs: [
                   {
-                    icon: this.getSubredditIconURL(subreddit) || undefined,
+                    icon:
+                      BrowseURLs.getSubredditIconURL(subreddit) || undefined,
                     text: `r/${subreddit.name}`,
-                    url: this.getSubredditOverviewURL(subreddit)
+                    url: BrowseURLs.getSubredditOverviewURL(subreddit)
                   }
                 ]
               }

@@ -12,6 +12,7 @@ import {
   type MediaListPage
 } from '../../../web/types/Page';
 import { utcSecondsToDate } from '../../utils/Misc';
+import { BrowseURLs } from './BrowseURLs';
 
 export type MediaPageListDomain = 'subreddit' | 'user' | 'all';
 
@@ -367,20 +368,20 @@ export function MediaWebRequestHandlerMixin<
       const author =
         includeUploader ?
           {
-            icon: this.getUserIconURL(post.author) || undefined,
+            icon: BrowseURLs.getUserIconURL(post.author) || undefined,
             text:
               post.author.username !== DELETED_USER.username ?
                 `u/${post.author.username}`
               : post.author.username,
-            url: this.getUserOverviewURL(post.author)
+            url: BrowseURLs.getUserOverviewURL(post.author)
           }
         : undefined;
       const subreddit =
         includeSubreddit ?
           {
-            icon: this.getSubredditIconURL(post.subreddit) || undefined,
+            icon: BrowseURLs.getSubredditIconURL(post.subreddit) || undefined,
             text: `r/${post.subreddit.name}`,
-            url: this.getSubredditOverviewURL(post.subreddit)
+            url: BrowseURLs.getSubredditOverviewURL(post.subreddit)
           }
         : undefined;
       const uploaded =
@@ -388,7 +389,7 @@ export function MediaWebRequestHandlerMixin<
           utcSecondsToDate(post.createdUTC).toLocaleString()
         : '';
 
-      const src = this.getMediaURL(media.type, media.downloadPath);
+      const src = BrowseURLs.getMediaURL(media.type, media.downloadPath);
 
       const kicker: PageElements.TextRunGroup[] = [];
       if (uploaded) {
@@ -409,8 +410,10 @@ export function MediaWebRequestHandlerMixin<
         src,
         thumbnail:
           src ?
-            this.getMediaURL('image', media.thumbnailDownloadPath) ||
-            (media.type === 'image' ? src : this.getStaticImageURL('video.png'))
+            BrowseURLs.getMediaURL('image', media.thumbnailDownloadPath) ||
+            (media.type === 'image' ?
+              src
+            : BrowseURLs.getStaticImageURL('video.png'))
           : null,
         title: post.title,
         tooltip: {
@@ -423,7 +426,7 @@ export function MediaWebRequestHandlerMixin<
               runs: [
                 {
                   text: post.title,
-                  url: this.getPostURL(post)
+                  url: BrowseURLs.getPostURL(post)
                 }
               ]
             }

@@ -1,14 +1,13 @@
 import { type WebRequestHandlerConstructor } from '.';
 import { type Request, type Response } from 'express';
-import { type Post, type PostComment, type PostType } from '../../entities/Post';
-import { DELETED_USER } from '../../utils/Constants';
 import { type PageElements } from '../../../web/types/PageElements';
 import {
   type Page,
   type SearchPostCommentResultsPage,
   type PostCommentsSection
 } from '../../../web/types/Page';
-import { sanitizeHTML, utcSecondsToDate } from '../../utils/Misc';
+import { BrowseURLs } from './BrowseURLs';
+import { CardBuilder } from './CardBuilder';
 
 export function PostCommentWebRequestHandlerMixin<
   TBase extends WebRequestHandlerConstructor
@@ -41,7 +40,7 @@ export function PostCommentWebRequestHandlerMixin<
         post.commentCount.topLevel > 0 &&
         offset + comments.length < post.commentCount.topLevel
       ) {
-        next = this.#getPostCommentsURL({
+        next = BrowseURLs.getPostCommentsURL({
           postId,
           sortBy,
           offset: offset + comments.length
@@ -52,7 +51,7 @@ export function PostCommentWebRequestHandlerMixin<
         sortOptions = [
           {
             text: 'Latest',
-            url: this.#getPostCommentsURL({
+            url: BrowseURLs.getPostCommentsURL({
               postId,
               sortBy: 'latest',
               offset: 0
@@ -61,7 +60,7 @@ export function PostCommentWebRequestHandlerMixin<
           },
           {
             text: 'Oldest',
-            url: this.#getPostCommentsURL({
+            url: BrowseURLs.getPostCommentsURL({
               postId,
               sortBy: 'oldest',
               offset: 0
@@ -70,14 +69,18 @@ export function PostCommentWebRequestHandlerMixin<
           },
           {
             text: 'Top',
-            url: this.#getPostCommentsURL({ postId, sortBy: 'top', offset: 0 }),
+            url: BrowseURLs.getPostCommentsURL({
+              postId,
+              sortBy: 'top',
+              offset: 0
+            }),
             isCurrent: sortBy === 'top'
           }
         ];
       }
       res.json({
         comments: comments.map((comment) =>
-          this.#createPostCommentCard({ post, comment, sortBy })
+          CardBuilder.createPostCommentCard({ post, comment, sortBy })
         ),
         next,
         sortOptions
@@ -114,7 +117,7 @@ export function PostCommentWebRequestHandlerMixin<
 
       let next: string | null = null;
       if (replies.length > 0 && offset + replies.length < comment.replyCount) {
-        next = this.#getPostCommentsURL({
+        next = BrowseURLs.getPostCommentsURL({
           postId,
           sortBy,
           offset: offset + replies.length,
@@ -123,105 +126,15 @@ export function PostCommentWebRequestHandlerMixin<
       }
       res.json({
         comments: replies.map((comment) =>
-          this.#createPostCommentCard({ post, comment, isReply: true, sortBy })
+          CardBuilder.createPostCommentCard({
+            post,
+            comment,
+            isReply: true,
+            sortBy
+          })
         ),
         next
       } satisfies PostCommentsSection);
-    }
-
-    #createPostCommentCard(params: {
-      post: Post<PostType>;
-      comment: PostComment;
-      isReply?: boolean;
-      isSearchResult?: boolean;
-      sortBy?: 'latest' | 'oldest' | 'top';
-    }): PageElements.Card<'PostComment'> {
-      const {
-        post,
-        comment,
-        isReply = false,
-        isSearchResult = false,
-        sortBy
-      } = params;
-      const isOP =
-        comment.author !== DELETED_USER.username &&
-        comment.author === post.author.username;
-      const author = {
-        class: isOP ? 'op' : undefined,
-        text:
-          comment.author !== DELETED_USER.username ?
-            `u/${comment.author}`
-          : comment.author
-      };
-      const created =
-        comment.createdUTC >= 0 ?
-          utcSecondsToDate(comment.createdUTC).toLocaleString()
-        : '';
-      const subtitleParts: PageElements.TextRunGroup[] = [
-        { runs: [author] },
-        { runs: [{ text: created }] },
-        {
-          runs: [
-            {
-              class: 'score',
-              text: 'thumbs_up_down'
-            },
-            {
-              text: String(comment.upvotes - comment.downvotes)
-            }
-          ]
-        },
-        {
-          runs: [
-            {
-              class: 'external-link',
-              text: 'exit_to_app',
-              url: this.getRedditURL(comment) || undefined,
-              isExternalURL: true
-            }
-          ]
-        }
-      ];
-      const replies = comment.replies.map((reply) =>
-        this.#createPostCommentCard({
-          post,
-          comment: reply,
-          isReply: true,
-          isSearchResult,
-          sortBy
-        })
-      );
-      let nextReplies: string | null = null;
-      if (
-        !isSearchResult &&
-        comment.replyCount > 0 &&
-        replies.length < comment.replyCount
-      ) {
-        nextReplies = this.#getPostCommentsURL({
-          postId: post.id,
-          parentId: comment.id,
-          sortBy,
-          offset: replies.length
-        });
-      }
-      const item: PageElements.Card<'PostComment'> = {
-        id: `post-comment-${comment.id}`,
-        type: 'PostComment',
-        class: `post-comment ${isReply ? 'reply' : ''} ${isSearchResult ? 'search-result' : ''}`,
-        subtitle: subtitleParts,
-        body: {
-          content: {
-            commentId: comment.id,
-            text: sanitizeHTML(comment.content.html),
-            replies: {
-              comments: replies,
-              next: nextReplies
-            }
-          }
-        }
-      };
-
-      return item;
     }
 
     getSearchPostCommentResultsPage(params: {
@@ -262,19 +175,21 @@ export function PostCommentWebRequestHandlerMixin<
         limit,
         offset
       });
-      const comments = data.map<PageElements.Card<'SearchPostCommentResult'>>(
+      const comments = data.map<PageElements.Card<'WrappedPostComment'>>(
         ({ comment, post }) => {
           return {
             id: `post-comment-${comment.id}`,
-            type: 'SearchPostCommentResult',
+            type: 'WrappedPostComment',
             class: 'search-post-comment-result',
             kicker: [
               {
                 runs: [
                   {
-                    icon: this.getSubredditIconURL(post.subreddit) || undefined,
+                    icon:
+                      BrowseURLs.getSubredditIconURL(post.subreddit) ||
+                      undefined,
                     text: `r/${post.subreddit.name}`,
-                    url: this.getSubredditOverviewURL(post.subreddit)
+                    url: BrowseURLs.getSubredditOverviewURL(post.subreddit)
                   }
                 ]
               }
@@ -284,13 +199,13 @@ export function PostCommentWebRequestHandlerMixin<
                 runs: [
                   {
                     text: post.title,
-                    url: this.getPostURL(post)
+                    url: BrowseURLs.getPostURL(post)
                   }
                 ]
               }
             ],
             body: {
-              content: this.#createPostCommentCard({
+              content: CardBuilder.createPostCommentCard({
                 post,
                 comment,
                 isSearchResult: true
@@ -346,34 +261,6 @@ export function PostCommentWebRequestHandlerMixin<
           target: 'all'
         }
       };
-    }
-
-    #getPostCommentsURL(params: {
-      postId: string;
-      parentId?: string;
-      sortBy?: 'latest' | 'oldest' | 'top';
-      limit?: number;
-      offset?: number;
-    }) {
-      const { postId, sortBy, limit, offset } = params;
-      const query: Record<string, string> = {
-        post_id: postId
-      };
-      if (sortBy) {
-        query['s'] = sortBy;
-      }
-      if (limit && limit > 0) {
-        query['n'] = String(limit);
-      }
-      if (offset && offset >= 0) {
-        query['o'] = String(offset);
-      }
-      if (params.parentId) {
-        query['comment_id'] = params.parentId;
-        return `/api/post_comment_replies?${new URLSearchParams(query).toString()}`;
-      } else {
-        return `/api/post_comments?${new URLSearchParams(query).toString()}`;
-      }
     }
   };
 }

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import MainLayout from './pages/MainLayout';
 import SearchResultsPage from './pages/SearchResultsPage';
 import TargetResultsPage from './pages/TargetResultsPage';
+import SavedItemListPage from './pages/SavedItemListPage';
 
 function App() {
   const [themeInitialized, setThemeInitialized] = useState(false);
@@ -45,6 +46,10 @@ function App() {
                 <Route
                   path="u/:username/submitted"
                   element={<PostListPage />}
+                />
+                <Route
+                  path="u/:username/saved"
+                  element={<SavedItemListPage />}
                 />
                 <Route path="post/:postId" element={<PostPage />} />
                 <Route path="media" element={<MediaListPage />} />

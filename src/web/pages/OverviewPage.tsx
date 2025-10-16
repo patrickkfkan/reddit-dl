@@ -50,6 +50,32 @@ function OverviewPage() {
             </div>
           </>
         : null}
+        {page.recentSavedItems && page.recentSavedItems.items.length > 0 ?
+          <>
+            <div className="mb-5">
+              <div className="d-flex mb-2 align-items-baseline">
+                <div className="flex-fill">
+                  <h4 className="m-0">Recent saves</h4>
+                </div>
+                <Stack direction="horizontal" gap={1}>
+                  <span>Total: {page.recentSavedItems.total}</span>
+                  <span>&#124;</span>
+                  <NavLink to={page.recentSavedItems.viewAllURL}>
+                    View all
+                  </NavLink>
+                </Stack>
+              </div>
+              <Stack gap={3}>
+                {page.recentSavedItems.items.map((item) => (
+                  <ContentCard
+                    key={`content-card-${item.type}-${item.id}`}
+                    data={item}
+                  />
+                ))}
+              </Stack>
+            </div>
+          </>
+        : null}
       </>
     );
   }, []);

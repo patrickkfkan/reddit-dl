@@ -15,24 +15,33 @@ export interface ProcessPostParams {
   stats: TargetDownloadStats;
   processAuthor: boolean;
   processSubreddit: boolean;
-  isWrappedPost?: boolean;
+  ignoreContinueConditions?: boolean;
   isBatch: boolean;
 }
+
+export type ProcessPostResult = {
+  continue: boolean;
+  processedPost: Post<PostType> | null;
+};
 
 export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
   Base: TBase
 ) {
   return class PostProcessorBase extends Base {
+    async processPost(
+      params: ProcessPostParams & { ignoreContinueConditions: true }
+    ): Promise<ProcessPostResult & { processedPost: Post<PostType> }>;
+    async processPost(params: ProcessPostParams): Promise<ProcessPostResult>;
     async processPost(params: ProcessPostParams) {
       const {
         post,
         stats,
         processAuthor,
         processSubreddit,
-        isWrappedPost = false,
+        ignoreContinueConditions = false,
         isBatch
       } = params;
-      if (!isWrappedPost) {
+      if (!ignoreContinueConditions) {
         if (
           this.config.after &&
           utcSecondsToDate(post.createdUTC).getTime() < this.config.after
@@ -68,7 +77,7 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
       }
       const db = await this.getDB();
       const dbPost = db.getPost(post.id);
-      if (dbPost && this.config.continue && !isWrappedPost) {
+      if (dbPost && this.config.continue && !ignoreContinueConditions) {
         this.log(
           'info',
           ':: Previously downloaded - not proceeding further because "--continue" option was specified'
@@ -383,7 +392,7 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
                 stats,
                 processAuthor: true,
                 processSubreddit: true,
-                isWrappedPost: true,
+                ignoreContinueConditions: true,
                 isBatch
               });
               this.log('info', `-- End linked post`);
@@ -411,7 +420,7 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
                   stats,
                   processAuthor: true,
                   processSubreddit: true,
-                  isWrappedPost: true,
+                  ignoreContinueConditions: true,
                   isBatch
                 })
               )

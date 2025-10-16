@@ -18,4 +18,8 @@ export type ResolvedTarget = {
       type: 'post';
       post: Post<PostType>;
     }
+  | {
+      type: 'me';
+      me: User;
+    }
 );
