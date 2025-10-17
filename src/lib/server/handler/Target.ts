@@ -84,12 +84,7 @@ export function TargetPageWebRequestHandlerMixin<
       }
       if (counts.me && counts.me > 0) {
         tabs.push(
-          this.#createTargetResultsTab(
-            req,
-            'me',
-            'Me',
-            currentTabName === 'me'
-          )
+          this.#createTargetResultsTab(req, 'me', 'Me', currentTabName === 'me')
         );
       }
 
@@ -107,9 +102,13 @@ export function TargetPageWebRequestHandlerMixin<
     }
 
     #validateTabName(value: string): value is TargetResultsTab['name'] {
-      return ['all', 'user_submitted', 'subreddit_posts', 'post', 'me'].includes(
-        value
-      );
+      return [
+        'all',
+        'user_submitted',
+        'subreddit_posts',
+        'post',
+        'me'
+      ].includes(value);
     }
 
     #createTargetResultsTab(
@@ -275,6 +274,20 @@ export function TargetPageWebRequestHandlerMixin<
                 title: 'Saved items:',
                 anchorText: String(counts.savedPost + counts.savedComment),
                 url: BrowseURLs.getSavedItemsURL(target.me)
+              });
+            }
+            if (counts.joinedSubreddit) {
+              footerLinks.push({
+                title: 'Joined subreddits:',
+                anchorText: String(counts.joinedSubreddit),
+                url: BrowseURLs.getJoinedSubredditsURL(target.me)
+              });
+            }
+            if (counts.following) {
+              footerLinks.push({
+                title: 'Following:',
+                anchorText: String(counts.following),
+                url: BrowseURLs.getFollowingURL(target.me)
               });
             }
             break;

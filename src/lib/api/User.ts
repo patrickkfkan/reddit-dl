@@ -1,12 +1,24 @@
 import { type APIConstructor } from '.';
+import { type Subscription } from '../entities/User';
 import { Abortable, AbortError } from '../utils/Abortable';
 import { DELETED_USER } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
-import { validateURL } from '../utils/URL';
+
+export interface FetchSubscriptionParams {
+  after?: string;
+  limit?: number;
+}
+
+export interface FetchSubscriptionResult {
+  subscriptions: Subscription[];
+  after: string | null;
+}
 
 export type UserAPIConstructor = new (
   ...args: any[]
 ) => InstanceType<ReturnType<typeof UserAPIMixin<APIConstructor>>>;
+
+const MAX_LIMIT = 100;
 
 export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
   return class UserAPI extends Base {
@@ -26,7 +38,9 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
             })
           )
         );
-        return this.parser.parseUser(ObjectHelper.getProperty(json, 'data', true));
+        return this.parser.parseUser(
+          ObjectHelper.getProperty(json, 'data', true)
+        );
       } catch (error) {
         if (error instanceof AbortError) {
           throw error;
@@ -58,32 +72,64 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
       }
     }
 
-    #parse(data: any) {
-      const _username = ObjectHelper.getProperty(data, 'name', true);
-      const isSuspended = ObjectHelper.getProperty(data, 'is_suspended');
-      const userURLStr = ObjectHelper.getProperty(data, 'subreddit.url');
-      const userURL = userURLStr ? validateURL(userURLStr, SITE_URL) : false;
-      if (!userURL && !isSuspended) {
-        this.log(
-          'warn',
-          `(${_username}) User profile has invalid URL value "${userURLStr}"`
+    async fetchSubscriptions(
+      params: FetchSubscriptionParams
+    ): Promise<FetchSubscriptionResult> {
+      const { after, limit = MAX_LIMIT } = params;
+      try {
+        const { json: data } = await this.defaultLimiter.schedule(() =>
+          Abortable.wrap((signal) =>
+            this.fetcher.fetchAPI({
+              endpoint: `/subreddits/mine/subscriber`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                limit: String(limit),
+                after: after || null
+              },
+              signal,
+              requiresAuth: true
+            })
+          )
         );
+        const children = ObjectHelper.getProperty(data, 'data.children');
+        if (!Array.isArray(children)) {
+          throw new TypeError('data.children is not an array');
+        }
+        const subscriptions: Subscription[] = children.map((child) => {
+          const displayNamePrefixed = ObjectHelper.getProperty(
+            child,
+            'data.display_name_prefixed'
+          );
+          const subredditType = ObjectHelper.getProperty(
+            child,
+            'data.subreddit_type'
+          );
+          const isUser =
+            subredditType === 'user' &&
+            typeof displayNamePrefixed === 'string' &&
+            displayNamePrefixed.startsWith('u/');
+          if (isUser) {
+            return {
+              type: 'user',
+              username: displayNamePrefixed.substring(2)
+            };
+          }
+          return {
+            type: 'subreddit',
+            subreddit: this.parser.parseSubreddit(child)
+          };
+        });
+        return {
+          subscriptions,
+          after: ObjectHelper.getProperty(data, 'data.after') || null
+        };
+      } catch (error) {
+        if (error instanceof AbortError) {
+          throw error;
+        }
+        throw Error(`Failed to fetch subscriptions`, { cause: error });
       }
-      const user: User = {
-        username: _username,
-        wasFetchedFromAPI: true,
-        isSuspended: typeof isSuspended === 'boolean' ? isSuspended : false,
-        url: userURL || '',
-        title: ObjectHelper.getProperty(data, 'subreddit.title') || '',
-        description:
-          ObjectHelper.getProperty(data, 'subreddit.public_description') || '',
-        avatar: this.mapDownloadableImage(data, 'snoovatar_img'),
-        banner: this.mapDownloadableImage(data, 'subreddit.banner_img'),
-        icon: this.mapDownloadableImage(data, 'icon_img'),
-        karma: ObjectHelper.getProperty(data, 'total_karma') || 0
-      };
-      return user;
     }
-    
   };
 }

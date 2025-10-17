@@ -124,7 +124,7 @@ export function SearchPageWebRequestHandlerMixin<
             'subreddits',
             'Subreddits',
             currentTabName === 'subreddits',
-            () => this.getSubredditListPage(req)
+            () => this.getSubredditListPage({ req })
           )
         );
       }
@@ -136,7 +136,7 @@ export function SearchPageWebRequestHandlerMixin<
             'users',
             'Users',
             currentTabName === 'users',
-            () => this.getUserListPage(req)
+            () => this.getUserListPage({ req })
           )
         );
       }

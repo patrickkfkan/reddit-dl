@@ -415,6 +415,8 @@ export function openDB(file: string, logger?: Logger | null) {
         -- v1.1.0 --
         "saved_post_count" NUMBER,
         "saved_comment_count" NUMBER,
+        "joined_subreddit_count" NUMBER,
+        "following_count" NUMBER,
         ------------
         "karma" NUMBER,
         "details"	TEXT NOT NULL,
@@ -643,6 +645,22 @@ export function openDB(file: string, logger?: Logger | null) {
       );
       
       CREATE INDEX IF NOT EXISTS "saved_item_by_index_index" ON "saved_item" ("saved_by", "item_index");
+
+      CREATE TABLE IF NOT EXISTS "joined_subreddit" (
+        "subreddit_id" TEXT,
+        "joined_by" TEXT,
+        PRIMARY KEY("subreddit_id", "joined_by"),
+        FOREIGN KEY("subreddit_id") REFERENCES "subreddit"("subreddit_id"),
+        FOREIGN KEY("joined_by") REFERENCES "user"("username")
+      );
+
+      CREATE TABLE IF NOT EXISTS "following" (
+        "username" TEXT,
+        "followed_by" TEXT,
+        PRIMARY KEY("username", "followed_by"),
+        FOREIGN KEY("username") REFERENCES "user"("username"),
+        FOREIGN KEY("followed_by") REFERENCES "user"("username")
+      );
       ------------
 
       ${POST_FTS_INIT}

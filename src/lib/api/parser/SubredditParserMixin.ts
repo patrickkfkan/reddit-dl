@@ -1,10 +1,12 @@
-import { Subreddit } from "../../entities/Subreddit";
-import { SITE_URL } from "../../utils/Constants";
-import ObjectHelper from "../../utils/ObjectHelper";
-import { validateURL } from "../../utils/URL";
-import { APIDataParserConstructor } from "./APIDataParser";
+import { type Subreddit } from '../../entities/Subreddit';
+import { SITE_URL } from '../../utils/Constants';
+import ObjectHelper from '../../utils/ObjectHelper';
+import { validateURL } from '../../utils/URL';
+import { type APIDataParserConstructor } from './APIDataParser';
 
-export function SubredditParserMixin<TBase extends APIDataParserConstructor>(Base: TBase) {
+export function SubredditParserMixin<TBase extends APIDataParserConstructor>(
+  Base: TBase
+) {
   return class SubredditParser extends Base {
     name = 'SubredditParser';
 
@@ -35,5 +37,5 @@ export function SubredditParserMixin<TBase extends APIDataParserConstructor>(Bas
       };
       return subreddit;
     }
-  }
+  };
 }

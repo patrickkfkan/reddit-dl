@@ -18,11 +18,11 @@ class WebRequestRouter {
     );
 
     this.#router.get('/api/subreddits/page', (req, res) =>
-      this.#handler.handleSubredditPageRequest(req, res)
+      this.#handler.handleSubredditPageRequest({ req, res })
     );
 
     this.#router.get('/api/users/page', (req, res) =>
-      this.#handler.handleUserPageRequest(req, res)
+      this.#handler.handleUserPageRequest({ req, res })
     );
 
     this.#router.get('/api/posts/page', (req, res) =>
@@ -95,7 +95,9 @@ class WebRequestRouter {
         view !== 'media' &&
         view !== 'overview' &&
         view !== 'search' &&
-        view !== 'saved'
+        view !== 'saved' &&
+        view !== 'joined' &&
+        view !== 'following'
       ) {
         throw Error(`Unknown value "${view}" for param "view"`);
       }
@@ -129,6 +131,18 @@ class WebRequestRouter {
         case 'saved':
           return this.#handler.handleSavedItemPageRequest({
             username: req.params.username,
+            req,
+            res
+          });
+        case 'joined':
+          return this.#handler.handleSubredditPageRequest({
+            joinedBy: req.params.username,
+            req,
+            res
+          });
+        case 'following':
+          return this.#handler.handleUserPageRequest({
+            followedBy: req.params.username,
             req,
             res
           });

@@ -1,5 +1,7 @@
 import { type ResolvedTarget } from '../../lib/entities/Target';
 import { type SavedItemPageList } from '../../lib/server/handler/SavedItem';
+import { type SubredditPageList } from '../../lib/server/handler/Subreddit';
+import { type UserPageList } from '../../lib/server/handler/User';
 import { type PageElements } from './PageElements';
 
 export type SearchContext =
@@ -41,6 +43,16 @@ export interface OverviewPage extends PageBase {
   };
   recentSavedItems?: {
     items: SavedItemPageList['items'];
+    total: number;
+    viewAllURL: string;
+  };
+  joinedSubreddits?: {
+    items: SubredditPageList['items'];
+    total: number;
+    viewAllURL: string;
+  };
+  following?: {
+    items: UserPageList['items'];
     total: number;
     viewAllURL: string;
   };

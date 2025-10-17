@@ -35,7 +35,7 @@ import {
   type ProcessSavedItemParams,
   SavedItemProcessorMixin
 } from './core/SavedItemProcessor.js';
-import { FetchSavedItemsResult } from './api/SavedItem.js';
+import { type FetchSavedItemsResult } from './api/SavedItem.js';
 
 export type DownloadTargetType =
   | 'userGalleries'
@@ -367,6 +367,7 @@ export class RedditDownloaderBase {
       : target.startsWith('r/') ? 'subreddit'
       : target === 'my/saved' ? 'my_saved'
       : target === 'my/joined' ? 'my_joined'
+      : target === 'my/following' ? 'my_following'
       : null;
     const api = await this.getAPI();
     const db = await this.getDB();
@@ -436,59 +437,7 @@ export class RedditDownloaderBase {
         if (this.config.saveTargetToDB) {
           db.saveTarget(resolvedTarget);
         }
-
-        let firstRun = true;
-        let continuation: string | undefined = undefined;
-        let processed = 0;
-        let counter = 1;
-        while (firstRun || continuation) {
-          if (this.#limitReached(processed)) {
-            return;
-          }
-          this.log(
-            'info',
-            `Fetching ${firstRun ? '' : 'next batch of '}posts for "${target}"...`
-          );
-          firstRun = false;
-          const { posts, errorCount, after } = await Abortable.wrap(() =>
-            api.fetchPostsByUser({
-              user,
-              after: continuation
-            })
-          );
-          stats.errorCount += errorCount;
-          if (posts.length === 0) {
-            this.log(
-              'warn',
-              `No ${firstRun ? '' : 'more '} posts found for "${target}"`
-            );
-            break;
-          }
-          for (const post of posts) {
-            if (this.#limitReached(processed)) {
-              return;
-            }
-            this.log('info', `#${counter} - (${post.id}) ${post.title}`);
-            const { continue: cont, processedPost } = await Abortable.wrap(() =>
-              this.processPost({
-                post,
-                stats,
-                processAuthor: false,
-                processSubreddit: true,
-                isBatch: true
-              })
-            );
-            counter++;
-            if (processedPost) {
-              processed++;
-              stats.processedPostCount++;
-            }
-            if (!cont) {
-              return;
-            }
-          }
-          continuation = after || undefined;
-        }
+        await this.downloadPostsByUser(user, stats);
         break;
       }
       case 'subreddit': {
@@ -519,92 +468,15 @@ export class RedditDownloaderBase {
           db.saveTarget(resolvedTarget);
         }
 
-        let firstRun = true;
-        let continuation: string | undefined = undefined;
-        let processed = 0;
-        let counter = 1;
-        while (firstRun || continuation) {
-          if (this.#limitReached(processed)) {
-            return;
-          }
-          this.log(
-            'info',
-            `Fetching ${firstRun ? '' : 'next batch of '}posts in "${target}"...`
-          );
-          firstRun = false;
-          const { posts, errorCount, after } = await Abortable.wrap(() =>
-            api.fetchPostsBySubreddit({
-              subreddit,
-              after: continuation
-            })
-          );
-          stats.errorCount += errorCount;
-          if (posts.length === 0) {
-            this.log(
-              'warn',
-              `No ${firstRun ? '' : 'more '} posts found in "${target}"`
-            );
-            break;
-          }
-          for (const post of posts) {
-            if (this.#limitReached(processed)) {
-              return;
-            }
-            this.log('info', `#${counter} - (${post.id}) ${post.title}`);
-            const { continue: cont, processedPost } = await Abortable.wrap(() =>
-              this.processPost({
-                post,
-                stats,
-                processAuthor: true,
-                processSubreddit: false,
-                isBatch: true
-              })
-            );
-            counter++;
-            if (processedPost) {
-              processed++;
-              stats.processedPostCount++;
-            }
-            if (!cont) {
-              return;
-            }
-          }
-          continuation = after || undefined;
-        }
+        await this.downloadPostsFromSubreddit(subreddit, stats);
         break;
       }
       case 'my_saved': {
-        if (!this.config.oauth) {
-          throw Error(`Target "${target}" requires authentication`);
-        }
-        this.log(
-          'info',
-          `Fetching profile associated with auth credentials...`
-        );
-        let me = await Abortable.wrap(() => api.fetchMe());
-        this.log('debug', `Fetched user "${me.username}"`);
-
-        const resolvedTarget: ResolvedTarget = {
-          type: 'me',
-          rawValue: target,
+        const { me } = await this.#createAndSaveMeTarget(
+          target,
           runTimestamp,
-          me
-        };
-        if (this.config.saveTargetToDB) {
-          db.saveTarget(resolvedTarget);
-          this.log('info', `Saved target info`);
-        }
-
-        resolvedTarget.me = me = await Abortable.wrap(() =>
-          this.processUser(me, stats)
+          stats
         );
-
-        // Need to save target again because user would now have downloaded
-        // image info
-        if (this.config.saveTargetToDB) {
-          db.saveTarget(resolvedTarget);
-        }
-
         const lastFetched =
           db.getSavedItems({
             savedBy: me,
@@ -756,9 +628,284 @@ export class RedditDownloaderBase {
         }
         break;
       }
-
+      case 'my_joined': {
+        const { me } = await this.#createAndSaveMeTarget(
+          target,
+          runTimestamp,
+          stats
+        );
+        let firstRun = true;
+        let continuation: string | undefined = undefined;
+        this.log('info', `Retrieving list of joined subreddits...`);
+        const fetchedSubreddits: Subreddit[] = [];
+        while (firstRun || continuation) {
+          this.log(
+            'debug',
+            `:: Fetching ${firstRun ? '' : 'next batch of '}subscriptions...`
+          );
+          firstRun = false;
+          const { subscriptions, after } = await Abortable.wrap(() =>
+            api.fetchSubscriptions({
+              after: continuation
+            })
+          );
+          if (subscriptions.length === 0) {
+            this.log(
+              'debug',
+              `:: No ${firstRun ? '' : 'more '} subscriptions found`
+            );
+            break;
+          }
+          const subreddits = subscriptions.reduce<Subreddit[]>(
+            (result, sub) => {
+              if (sub.type === 'subreddit') {
+                result.push(sub.subreddit);
+              }
+              return result;
+            },
+            []
+          );
+          this.log(
+            'debug',
+            `:: Found ${subreddits.length} subreddits in batch`
+          );
+          fetchedSubreddits.push(...subreddits);
+          continuation = after || undefined;
+        }
+        if (fetchedSubreddits.length === 0) {
+          this.log('info', 'No joined subreddits found');
+          return;
+        }
+        this.log(
+          'info',
+          `Going to process ${fetchedSubreddits.length} subreddits`
+        );
+        for (const subreddit of fetchedSubreddits) {
+          this.log('info', `** Begin: r/${subreddit.name} **`);
+          const processedSubreddit = await Abortable.wrap(() =>
+            this.processSubreddit(subreddit, stats)
+          );
+          db.saveJoinedSubredditInfo(processedSubreddit, me);
+          this.log('info', ':: Saved subscription info');
+          await this.downloadPostsFromSubreddit(processedSubreddit, stats);
+          this.log('info', `** Done: r/${subreddit.name} **`);
+        }
+        break;
+      }
+      case 'my_following': {
+        const { me } = await this.#createAndSaveMeTarget(
+          target,
+          runTimestamp,
+          stats
+        );
+        let firstRun = true;
+        let continuation: string | undefined = undefined;
+        this.log('info', `Retrieving following list...`);
+        const fetchedUsernames: string[] = [];
+        while (firstRun || continuation) {
+          this.log(
+            'debug',
+            `:: Fetching ${firstRun ? '' : 'next batch of '}subscriptions...`
+          );
+          firstRun = false;
+          const { subscriptions, after } = await Abortable.wrap(() =>
+            api.fetchSubscriptions({
+              after: continuation
+            })
+          );
+          if (subscriptions.length === 0) {
+            this.log(
+              'debug',
+              `:: No ${firstRun ? '' : 'more '} subscriptions found`
+            );
+            break;
+          }
+          const usernames = subscriptions.reduce<string[]>((result, sub) => {
+            if (sub.type === 'user') {
+              result.push(sub.username);
+            }
+            return result;
+          }, []);
+          this.log('debug', `:: Found ${usernames.length} users in batch`);
+          fetchedUsernames.push(...usernames);
+          continuation = after || undefined;
+        }
+        if (fetchedUsernames.length === 0) {
+          this.log('info', 'Following list is empty');
+          return;
+        }
+        this.log('info', `Going to process ${fetchedUsernames.length} users`);
+        for (const username of fetchedUsernames) {
+          this.log('info', `** Begin: u/${username} **`);
+          this.log('info', `Fetching user profile for "${username}"...`);
+          const user = await Abortable.wrap(() => api.fetchUser(username));
+          const processedUser = await Abortable.wrap(() =>
+            this.processUser(user, stats)
+          );
+          db.saveFollowing(processedUser, me);
+          this.log('info', ':: Saved following info');
+          await this.downloadPostsByUser(processedUser, stats);
+          this.log('info', `** Done: r/${username} **`);
+        }
+        break;
+      }
       default:
         throw Error(`Unknown target "${target}"`);
+    }
+  }
+
+  async #createAndSaveMeTarget(
+    target: string,
+    runTimestamp: number,
+    stats: TargetDownloadStats
+  ) {
+    const db = await this.getDB();
+    const api = await this.getAPI();
+    if (!this.config.oauth) {
+      throw Error(`Target "${target}" requires authentication`);
+    }
+    this.log('info', `Fetching profile associated with auth credentials...`);
+    let me = await Abortable.wrap(() => api.fetchMe());
+    this.log('debug', `Fetched user "${me.username}"`);
+
+    const resolvedTarget: ResolvedTarget = {
+      type: 'me',
+      rawValue: target,
+      runTimestamp,
+      me
+    };
+    if (this.config.saveTargetToDB) {
+      db.saveTarget(resolvedTarget);
+      this.log('info', `Saved target info`);
+    }
+
+    resolvedTarget.me = me = await Abortable.wrap(() =>
+      this.processUser(me, stats)
+    );
+
+    // Need to save target again because user would now have downloaded
+    // image info
+    if (this.config.saveTargetToDB) {
+      db.saveTarget(resolvedTarget);
+    }
+
+    return resolvedTarget;
+  }
+
+  async downloadPostsFromSubreddit(
+    subreddit: Subreddit,
+    stats: TargetDownloadStats
+  ) {
+    const api = await this.getAPI();
+    const displayName = `r/${subreddit.name}`;
+    let firstRun = true;
+    let continuation: string | undefined = undefined;
+    let processed = 0;
+    let counter = 1;
+    while (firstRun || continuation) {
+      if (this.#limitReached(processed)) {
+        return;
+      }
+      this.log(
+        'info',
+        `Fetching ${firstRun ? '' : 'next batch of '}posts in "${displayName}"...`
+      );
+      firstRun = false;
+      const { posts, errorCount, after } = await Abortable.wrap(() =>
+        api.fetchPostsBySubreddit({
+          subreddit,
+          after: continuation
+        })
+      );
+      stats.errorCount += errorCount;
+      if (posts.length === 0) {
+        this.log(
+          'warn',
+          `No ${firstRun ? '' : 'more '} posts found in "${displayName}"`
+        );
+        break;
+      }
+      for (const post of posts) {
+        if (this.#limitReached(processed)) {
+          return;
+        }
+        this.log('info', `#${counter} - (${post.id}) ${post.title}`);
+        const { continue: cont, processedPost } = await Abortable.wrap(() =>
+          this.processPost({
+            post,
+            stats,
+            processAuthor: true,
+            processSubreddit: false,
+            isBatch: true
+          })
+        );
+        counter++;
+        if (processedPost) {
+          processed++;
+          stats.processedPostCount++;
+        }
+        if (!cont) {
+          return;
+        }
+      }
+      continuation = after || undefined;
+    }
+  }
+
+  async downloadPostsByUser(user: User, stats: TargetDownloadStats) {
+    const api = await this.getAPI();
+    const displayName = `u/${user.username}`;
+    let firstRun = true;
+    let continuation: string | undefined = undefined;
+    let processed = 0;
+    let counter = 1;
+    while (firstRun || continuation) {
+      if (this.#limitReached(processed)) {
+        return;
+      }
+      this.log(
+        'info',
+        `Fetching ${firstRun ? '' : 'next batch of '}posts for "${displayName}"...`
+      );
+      firstRun = false;
+      const { posts, errorCount, after } = await Abortable.wrap(() =>
+        api.fetchPostsByUser({
+          user,
+          after: continuation
+        })
+      );
+      stats.errorCount += errorCount;
+      if (posts.length === 0) {
+        this.log(
+          'warn',
+          `No ${firstRun ? '' : 'more '} posts found for "${displayName}"`
+        );
+        break;
+      }
+      for (const post of posts) {
+        if (this.#limitReached(processed)) {
+          return;
+        }
+        this.log('info', `#${counter} - (${post.id}) ${post.title}`);
+        const { continue: cont, processedPost } = await Abortable.wrap(() =>
+          this.processPost({
+            post,
+            stats,
+            processAuthor: false,
+            processSubreddit: true,
+            isBatch: true
+          })
+        );
+        counter++;
+        if (processedPost) {
+          processed++;
+          stats.processedPostCount++;
+        }
+        if (!cont) {
+          return;
+        }
+      }
+      continuation = after || undefined;
     }
   }
 

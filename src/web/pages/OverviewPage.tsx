@@ -76,6 +76,56 @@ function OverviewPage() {
             </div>
           </>
         : null}
+        {page.joinedSubreddits && page.joinedSubreddits.items.length > 0 ?
+          <>
+            <div className="mb-5">
+              <div className="d-flex mb-2 align-items-baseline">
+                <div className="flex-fill">
+                  <h4 className="m-0">Joined subreddits</h4>
+                </div>
+                <Stack direction="horizontal" gap={1}>
+                  <span>Total: {page.joinedSubreddits.total}</span>
+                  <span>&#124;</span>
+                  <NavLink to={page.joinedSubreddits.viewAllURL}>
+                    View all
+                  </NavLink>
+                </Stack>
+              </div>
+              <Stack gap={3}>
+                {page.joinedSubreddits.items.map((item) => (
+                  <ContentCard
+                    key={`content-card-${item.type}-${item.id}`}
+                    data={item}
+                  />
+                ))}
+              </Stack>
+            </div>
+          </>
+        : null}
+        {page.following && page.following.items.length > 0 ?
+          <>
+            <div className="mb-5">
+              <div className="d-flex mb-2 align-items-baseline">
+                <div className="flex-fill">
+                  <h4 className="m-0">Following</h4>
+                </div>
+                <Stack direction="horizontal" gap={1}>
+                  <span>Total: {page.following.total}</span>
+                  <span>&#124;</span>
+                  <NavLink to={page.following.viewAllURL}>View all</NavLink>
+                </Stack>
+              </div>
+              <Stack gap={3}>
+                {page.following.items.map((item) => (
+                  <ContentCard
+                    key={`content-card-${item.type}-${item.id}`}
+                    data={item}
+                  />
+                ))}
+              </Stack>
+            </div>
+          </>
+        : null}
       </>
     );
   }, []);

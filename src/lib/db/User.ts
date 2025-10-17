@@ -1,7 +1,9 @@
+import { type Subreddit } from '../entities/Subreddit';
 import { type UserWithCounts, type User } from '../entities/User';
 import { type MediaDBConstructor } from './Media';
 
 export type DBGetUsersParams = {
+  followedBy?: string;
   limit: number;
   offset: number;
 } & (
@@ -26,6 +28,8 @@ export interface CountsForUser {
   post: number;
   savedPost: number;
   savedComment: number;
+  joinedSubreddit: number;
+  following: number;
 }
 
 export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
@@ -77,16 +81,22 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
     }
 
     getUsers(params: DBGetUsersParams) {
-      const { search, sortBy, limit, offset } = params;
+      const { followedBy, search, sortBy, limit, offset } = params;
 
-      let whereClause: string;
-      const whereValues: string[] = [];
+      const whereClauseParts: string[] = [];
+      const whereValues: (string | number)[] = [];
       if (search) {
-        whereClause = `WHERE user_fts MATCH ?`;
+        whereClauseParts.push('user_fts MATCH ?');
         whereValues.push(search);
-      } else {
-        whereClause = '';
       }
+      if (followedBy) {
+        whereClauseParts.push('following.followed_by = ?');
+        whereValues.push(followedBy);
+      }
+      const whereClause =
+        whereClauseParts.length > 0 ?
+          `WHERE ${whereClauseParts.join(' AND ')}`
+        : '';
 
       let orderByClause: string;
       switch (sortBy) {
@@ -123,6 +133,10 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
       } else {
         fromClause = 'FROM user';
       }
+      if (followedBy) {
+        fromClause = `${fromClause}
+          INNER JOIN following ON user.username = following.username`;
+      }
 
       try {
         const rows = this.db
@@ -133,7 +147,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
             user.post_count,
             user.media_count,
             user.saved_post_count,
-            user.saved_comment_count
+            user.saved_comment_count,
+            user.joined_subreddit_count,
+            user.following_count
           ${fromClause}
           ${whereClause}
           ${orderByClause}
@@ -146,6 +162,8 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           media_count: number | null;
           saved_post_count: number | null;
           saved_comment_count: number | null;
+          joined_subreddit_count: number | null;
+          following_count: number | null;
         }[];
         return rows.map<UserWithCounts>((row) => ({
           user: JSON.parse(row.details),
@@ -153,7 +171,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
             post: row.post_count || 0,
             media: row.media_count || 0,
             savedPost: row.saved_post_count || 0,
-            savedComment: row.saved_comment_count || 0
+            savedComment: row.saved_comment_count || 0,
+            joinedSubreddit: row.joined_subreddit_count || 0,
+            following: row.following_count || 0
           }
         }));
       } catch (error) {
@@ -199,6 +219,8 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
               user.media_count,
               user.saved_post_count,
               user.saved_comment_count,
+              user.joined_subreddit_count,
+              user.following_count,
               ${postCountSql} AS post_count
             FROM
               user
@@ -212,13 +234,17 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           post_count: number;
           saved_post_count: number | null;
           saved_comment_count: number | null;
+          joined_subreddit_count: number | null;
+          following_count: number | null;
         }[];
         const mapped = rows.map((row) => ({
           username: row.username,
           media: row.media_count,
           post: row.post_count,
           savedPost: row.saved_post_count || 0,
-          savedComment: row.saved_comment_count || 0
+          savedComment: row.saved_comment_count || 0,
+          joinedSubreddit: row.joined_subreddit_count || 0,
+          following: row.following_count || 0
         }));
         if (isMultiple) {
           const result: Record<string, CountsForUser> = {};
@@ -227,7 +253,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
               media: counts.media,
               post: counts.post,
               savedPost: counts.savedPost,
-              savedComment: counts.savedComment
+              savedComment: counts.savedComment,
+              joinedSubreddit: counts.joinedSubreddit,
+              following: counts.following
             };
           }
           return result;
@@ -237,7 +265,9 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
               media: mapped[0].media,
               post: mapped[0].post,
               savedPost: mapped[0].savedPost,
-              savedComment: mapped[0].savedComment
+              savedComment: mapped[0].savedComment,
+              joinedSubreddit: mapped[0].joinedSubreddit,
+              following: mapped[0].following
             }
           : null;
       } catch (error) {
@@ -248,22 +278,55 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
       }
     }
 
-    getUserCount(search?: string) {
+    getUserCount(search?: string, followedBy?: string) {
+      let selectClause: string;
+      let fromClause: string;
+      const whereClauseParts: string[] = [];
+      const whereValues: (string | number)[] = [];
+      if (search) {
+        selectClause = 'SELECT COUNT(user_fts) AS user_count';
+        fromClause = 'FROM user_fts';
+        if (followedBy) {
+          fromClause = `${fromClause}
+            LEFT JOIN
+              user_fts_source ON user_fts_source.fts_rowid = user_fts.rowid
+            LEFT JOIN
+              user ON user.username = user_fts_source.username
+            INNER JOIN
+              following ON user.username = following.username`;
+        }
+      } else {
+        selectClause = 'SELECT COUNT(user.username) AS user_count';
+        fromClause = 'FROM user';
+        if (followedBy) {
+          fromClause = `${fromClause}
+            INNER JOIN
+              following ON user.username = following.username`;
+        }
+      }
+      if (search) {
+        whereClauseParts.push('user_fts MATCH ?');
+        whereValues.push(search);
+      }
+      if (followedBy) {
+        whereClauseParts.push('following.followed_by = ?');
+        whereValues.push(followedBy);
+      }
+      const whereClause =
+        whereClauseParts.length > 0 ?
+          `WHERE ${whereClauseParts.join(' AND ')}`
+        : '';
+
       try {
-        const result =
-          search ?
-            (this.db
-              .prepare(
-                `
-              SELECT COUNT(user_fts) AS user_count
-              FROM user_fts
-              WHERE user_fts MATCH ?
-              `
-              )
-              .get(search) as { user_count: number } | undefined)
-          : (this.db
-              .prepare(`SELECT COUNT(username) AS user_count FROM user`)
-              .get() as { user_count: number } | undefined);
+        const result = this.db
+          .prepare(
+            `
+          ${selectClause}
+          ${fromClause}
+          ${whereClause}
+          `
+          )
+          .get(...whereValues) as { user_count: number } | undefined;
         return result ? result.user_count : null;
       } catch (error) {
         this.log('error', `Failed to get user count from DB:`, error);
@@ -286,6 +349,168 @@ export function UserDBMixin<TBase extends MediaDBConstructor>(Base: TBase) {
           error
         );
         return false;
+      }
+    }
+
+    saveJoinedSubredditInfo(
+      subreddit: Subreddit | string,
+      joinedBy: User | string
+    ) {
+      const subredditId =
+        typeof subreddit === 'string' ? subreddit : subreddit.id;
+      const username =
+        typeof joinedBy === 'string' ? joinedBy : joinedBy.username;
+      try {
+        this.db.exec('BEGIN TRANSACTION;');
+        const exists = this.checkJoinedSubredditInfoExists(
+          subredditId,
+          username
+        );
+        if (!exists) {
+          this.db
+            .prepare(
+              `
+              INSERT INTO joined_subreddit (
+                subreddit_id,
+                joined_by
+              ) VALUES (?, ?)`
+            )
+            .run(subredditId, username);
+        }
+        this.#refreshUserStats(username);
+        this.db.exec('COMMIT;');
+      } catch (error: any) {
+        this.db.exec('ROLLBACK;');
+        const paramsStr = `[subredditId: ${subredditId}; joinedBy: ${username}]`;
+        throw Error(
+          `An error occurred while writing joined_subreddit ${paramsStr} to database.`,
+          {
+            cause: error
+          }
+        );
+      }
+    }
+
+    checkJoinedSubredditInfoExists(
+      subreddit: Subreddit | string,
+      joinedBy: User | string
+    ) {
+      const subredditId =
+        typeof subreddit === 'string' ? subreddit : subreddit.id;
+      const username =
+        typeof joinedBy === 'string' ? joinedBy : joinedBy.username;
+      try {
+        const result = this.db
+          .prepare(
+            `
+            SELECT
+              COUNT(*) as count
+            FROM
+              joined_subreddit
+            WHERE
+              subreddit_id = ? AND
+              joined_by = ?
+          `
+          )
+          .get(subredditId, username) as { count: number };
+        return result.count > 0;
+      } catch (error) {
+        const paramsStr = `[subredditId: ${subredditId}; joinedBy: ${username}]`;
+        this.log(
+          'error',
+          `Failed to check if joined_subreddit ${paramsStr} exists in DB:`,
+          error
+        );
+        return false;
+      }
+    }
+
+    saveFollowing(user: User | string, followedBy: User | string) {
+      const username = typeof user === 'string' ? user : user.username;
+      const followedByUsername =
+        typeof followedBy === 'string' ? followedBy : followedBy.username;
+      try {
+        this.db.exec('BEGIN TRANSACTION;');
+        const exists = this.checkFollowingExists(username, followedByUsername);
+        if (!exists) {
+          this.db
+            .prepare(
+              `
+              INSERT INTO following (
+                username,
+                followed_by
+              ) VALUES (?, ?)`
+            )
+            .run(username, followedByUsername);
+        }
+        this.#refreshUserStats(followedByUsername);
+        this.db.exec('COMMIT;');
+      } catch (error: any) {
+        this.db.exec('ROLLBACK;');
+        const paramsStr = `[username: ${username}; followedBy: ${followedByUsername}]`;
+        throw Error(
+          `An error occurred while writing following info ${paramsStr} to database.`,
+          {
+            cause: error
+          }
+        );
+      }
+    }
+
+    checkFollowingExists(user: User | string, followedBy: User | string) {
+      const username = typeof user === 'string' ? user : user.username;
+      const followedByUsername =
+        typeof followedBy === 'string' ? followedBy : followedBy.username;
+      try {
+        const result = this.db
+          .prepare(
+            `
+            SELECT
+              COUNT(*) as count
+            FROM
+              following
+            WHERE
+              username = ? AND
+              followed_by = ?
+          `
+          )
+          .get(username, followedByUsername) as { count: number };
+        return result.count > 0;
+      } catch (error) {
+        const paramsStr = `[username: ${username}; followedBy: ${followedByUsername}]`;
+        this.log(
+          'error',
+          `Failed to check if following info ${paramsStr} exists in DB:`,
+          error
+        );
+        return false;
+      }
+    }
+
+    #refreshUserStats(user: User | string) {
+      const username = typeof user === 'string' ? user : user.username;
+      this.log(
+        'debug',
+        `Refresh user joined_subreddi / following stats for "${username}"`
+      );
+      try {
+        this.db
+          .prepare(
+            `
+          UPDATE user
+          SET
+            joined_subreddit_count = (SELECT COUNT(subreddit_id) FROM joined_subreddit WHERE joined_by = user.username),
+            following_count = (SELECT COUNT(username) FROM following WHERE followed_by = user.username)
+          WHERE username = ?
+        `
+          )
+          .run(username);
+      } catch (error) {
+        this.log(
+          'error',
+          `Failed to refresh user joined_subreddit / following stats in DB for "${username}":`,
+          error
+        );
       }
     }
   };

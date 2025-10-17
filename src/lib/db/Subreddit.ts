@@ -5,6 +5,7 @@ import {
 import { type MediaDBConstructor } from './Media';
 
 export type DBGetSubredditsParams = {
+  joinedBy?: string;
   limit: number;
   offset: number;
 } & (
@@ -78,16 +79,22 @@ export function SubredditDBMixin<TBase extends MediaDBConstructor>(
     }
 
     getSubreddits(params: DBGetSubredditsParams) {
-      const { search, sortBy, limit, offset } = params;
+      const { joinedBy, search, sortBy, limit, offset } = params;
 
-      let whereClause: string;
-      const whereValues: string[] = [];
+      const whereClauseParts: string[] = [];
+      const whereValues: (string | number)[] = [];
       if (search) {
-        whereClause = `WHERE subreddit_fts MATCH ?`;
+        whereClauseParts.push('subreddit_fts MATCH ?');
         whereValues.push(search);
-      } else {
-        whereClause = '';
       }
+      if (joinedBy) {
+        whereClauseParts.push('joined_subreddit.joined_by = ?');
+        whereValues.push(joinedBy);
+      }
+      const whereClause =
+        whereClauseParts.length > 0 ?
+          `WHERE ${whereClauseParts.join(' AND ')}`
+        : '';
 
       let orderByClause: string;
       switch (sortBy) {
@@ -120,6 +127,10 @@ export function SubredditDBMixin<TBase extends MediaDBConstructor>(
         `;
       } else {
         fromClause = 'FROM subreddit';
+      }
+      if (joinedBy) {
+        fromClause = `${fromClause}
+          INNER JOIN joined_subreddit ON subreddit.subreddit_id = joined_subreddit.subreddit_id`;
       }
 
       try {
@@ -246,24 +257,56 @@ export function SubredditDBMixin<TBase extends MediaDBConstructor>(
       }
     }
 
-    getSubredditCount(search?: string) {
+    getSubredditCount(search?: string, joinedBy?: string) {
+      let selectClause: string;
+      let fromClause: string;
+      const whereClauseParts: string[] = [];
+      const whereValues: (string | number)[] = [];
+      if (search) {
+        selectClause = 'SELECT COUNT(subreddit_fts) AS subreddit_count';
+        fromClause = 'FROM subreddit_fts';
+        if (joinedBy) {
+          fromClause = `${fromClause}
+            LEFT JOIN
+              subreddit_fts_source ON subreddit_fts_source.fts_rowid = subreddit_fts.rowid
+            LEFT JOIN
+              subreddit ON subreddit.subreddit_id = subreddit_fts_source.subreddit_id
+            INNER JOIN
+              joined_subreddit ON subreddit.subreddit_id = joined_subreddit.subreddit_id`;
+        }
+      } else {
+        selectClause =
+          'SELECT COUNT(subreddit.subreddit_id) AS subreddit_count';
+        fromClause = 'FROM subreddit';
+        if (joinedBy) {
+          fromClause = `${fromClause}
+            INNER JOIN
+              joined_subreddit ON subreddit.subreddit_id = joined_subreddit.subreddit_id`;
+        }
+      }
+      if (search) {
+        whereClauseParts.push('subreddit_fts MATCH ?');
+        whereValues.push(search);
+      }
+      if (joinedBy) {
+        whereClauseParts.push('joined_subreddit.joined_by = ?');
+        whereValues.push(joinedBy);
+      }
+      const whereClause =
+        whereClauseParts.length > 0 ?
+          `WHERE ${whereClauseParts.join(' AND ')}`
+        : '';
+
       try {
-        const result =
-          search ?
-            (this.db
-              .prepare(
-                `
-              SELECT COUNT(subreddit_fts) AS subreddit_count
-              FROM subreddit_fts
-              WHERE subreddit_fts MATCH ?
-              `
-              )
-              .get(search) as { subreddit_count: number } | undefined)
-          : (this.db
-              .prepare(
-                `SELECT COUNT(subreddit_id) AS subreddit_count FROM subreddit`
-              )
-              .get() as { subreddit_count: number } | undefined);
+        const result = this.db
+          .prepare(
+            `
+          ${selectClause}
+          ${fromClause}
+          ${whereClause}
+          `
+          )
+          .get(...whereValues) as { subreddit_count: number } | undefined;
         return result ? result.subreddit_count : null;
       } catch (error) {
         this.log('error', `Failed to get subreddit count from DB:`, error);

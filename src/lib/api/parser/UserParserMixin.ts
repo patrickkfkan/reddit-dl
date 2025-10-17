@@ -1,13 +1,15 @@
-import { User } from "../../entities/User";
-import { SITE_URL } from "../../utils/Constants";
-import ObjectHelper from "../../utils/ObjectHelper";
-import { validateURL } from "../../utils/URL";
-import { APIDataParserConstructor } from "./APIDataParser";
+import { type User } from '../../entities/User';
+import { SITE_URL } from '../../utils/Constants';
+import ObjectHelper from '../../utils/ObjectHelper';
+import { validateURL } from '../../utils/URL';
+import { type APIDataParserConstructor } from './APIDataParser';
 
-export function UserParserMixin<TBase extends APIDataParserConstructor>(Base: TBase) {
+export function UserParserMixin<TBase extends APIDataParserConstructor>(
+  Base: TBase
+) {
   return class UserParser extends Base {
     name = 'UserParser';
-    
+
     parseUser(data: any) {
       const _username = ObjectHelper.getProperty(data, 'name', true);
       const isSuspended = ObjectHelper.getProperty(data, 'is_suspended');
@@ -33,6 +35,6 @@ export function UserParserMixin<TBase extends APIDataParserConstructor>(Base: TB
         karma: ObjectHelper.getProperty(data, 'total_karma') || 0
       };
       return user;
-    }  
-  }
+    }
+  };
 }

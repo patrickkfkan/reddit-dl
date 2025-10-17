@@ -1,15 +1,20 @@
 import { load as cheerioLoad } from 'cheerio';
-import { Subreddit } from '../../entities/Subreddit';
-import { User } from '../../entities/User';
-import { Post, PostMedia, PostType } from '../../entities/Post';
+import { type Subreddit } from '../../entities/Subreddit';
+import { type User } from '../../entities/User';
+import {
+  type Post,
+  type PostComment,
+  type PostMedia,
+  PostType
+} from '../../entities/Post';
 import { Abortable, AbortError } from '../../utils/Abortable';
 import { SITE_URL } from '../../utils/Constants';
 import ObjectHelper from '../../utils/ObjectHelper';
 import { getPostIdFromURL, validateURL } from '../../utils/URL';
-import { FetchPostCommentsResult } from '../Post';
-import { DownloadableImage } from '../../entities/Common';
+import { type FetchCommentsStats, type FetchPostCommentsResult } from '../Post';
+import { type DownloadableImage } from '../../entities/Common';
 import path from 'path';
-import { APIDataParserConstructor } from './APIDataParser';
+import { type APIDataParserConstructor } from './APIDataParser';
 
 const REDDIT_IMAGE_DOMAIN = 'i.redd.it';
 const REDDIT_VIDEO_DOMAIN = 'v.redd.it';
@@ -535,6 +540,70 @@ export function PostParserMixin<TBase extends APIDataParserConstructor>(
         );
         return null;
       }
+    }
+
+    async parsePostComment(
+      postId: string | null,
+      children: any[],
+      stats: FetchCommentsStats,
+      fetchMoreCommentsFn: (
+        postId: string,
+        more: any[],
+        stats: FetchCommentsStats
+      ) => Promise<PostComment[]>,
+      mapReplies = true
+    ) {
+      return children.reduce<Promise<PostComment[]>>(async (_result, child) => {
+        const result = await _result;
+        const isMore = ObjectHelper.getProperty(child, 'kind') === 'more';
+        if (isMore) {
+          const more = ObjectHelper.getProperty(child, 'data.children');
+          if (!Array.isArray(more)) {
+            this.log(
+              'warn',
+              `More comments expected, but data.children is not an array`
+            );
+          } else if (more.length > 0 && postId) {
+            result.push(
+              ...(await Abortable.wrap(() =>
+                fetchMoreCommentsFn(postId, more, stats)
+              ))
+            );
+          }
+        } else {
+          const permalink = ObjectHelper.getProperty(child, 'data.permalink');
+          const url = permalink ? validateURL(permalink, SITE_URL) : false;
+          const repliesData =
+            mapReplies ?
+              ObjectHelper.getProperty(child, 'data.replies.data.children')
+            : null;
+          const replies =
+            Array.isArray(repliesData) ?
+              await this.parsePostComment(
+                postId,
+                repliesData,
+                stats,
+                fetchMoreCommentsFn
+              )
+            : [];
+          result.push({
+            id: ObjectHelper.getProperty(child, 'data.id') || '',
+            url: url || '',
+            author: ObjectHelper.getProperty(child, 'data.author') || '',
+            createdUTC: ObjectHelper.getProperty(child, 'data.created_utc'),
+            content: {
+              text: ObjectHelper.getProperty(child, 'data.body') || '',
+              html: ObjectHelper.getProperty(child, 'data.body_html') || ''
+            },
+            upvotes: ObjectHelper.getProperty(child, 'data.ups') || 0,
+            downvotes: ObjectHelper.getProperty(child, 'data.downs') || 0,
+            replies,
+            replyCount: replies.length
+          });
+          stats.count++;
+        }
+        return result;
+      }, Promise.resolve([]));
     }
   };
 }

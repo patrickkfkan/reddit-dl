@@ -46,6 +46,12 @@ $ reddit-dl "https://www.reddit.com/r/<subreddit>>/comments/<post_id>/<slug>/"
 // See "Authentication" section for -x option
 $ reddit-dl -x auth.conf "my/saved"
 
+// Download posts from subreddits you've joined
+$ reddit-dl -x auth.conf "my/joined"
+
+// Download posts by users you're following
+$ reddit-dl -x auth.conf "my/following"
+
 // Download all targets in "targets.txt"
 $ reddit-dl targets.txt
 
@@ -94,6 +100,8 @@ $ reddit-dl [OPTION]... TARGET or FILE
 | `https://www.reddit.com/user/<username>/comments/<post_id>/<slug>/` | Single post by user |
 | `p/<post_id>` | Single post identified by `post_id` |
 | `my/saved` | Your saved posts / comments. Requires [authentication](#authentication). |
+| `my/joined` | Posts from subreddits you've joined. Requires [authentication](#authentication). |
+| `my/following` | Posts by users you're following. Requires [authentication](#authentication). |
 | `previous/<flags>`| Download previous targets matching `flag`, which can be:<ul><li>`r`: previous "subreddit" targets</li><li>`u`: previous "user" targets</li><li>`p`: previous "post" targets</li></ul> Combine `r`, `u` and `p` to specify multiple previous target types. See [Downloading new content since last download](#downloading-new-content-since-last-download) for example usage.</p> |
 
 Multiple targets may be provided in a file. The file must be in plain text format with each target placed on its own line. Lines starting with `#` are ignored.

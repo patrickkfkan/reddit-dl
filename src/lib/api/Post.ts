@@ -1,9 +1,5 @@
 import type Bottleneck from 'bottleneck';
-import {
-  type Post,
-  type PostComment,
-  PostType
-} from '../entities/Post';
+import { type Post, type PostComment, type PostType } from '../entities/Post';
 import { type Subreddit } from '../entities/Subreddit';
 import { type User } from '../entities/User';
 import { Abortable, AbortError } from '../utils/Abortable';
@@ -50,9 +46,7 @@ export interface FetchPostCommentsResult {
 
 export type PostAPIConstructor = new (
   ...args: any[]
-) => InstanceType<
-  ReturnType<typeof PostAPIMixin<UserAPIConstructor>>
->;
+) => InstanceType<ReturnType<typeof PostAPIMixin<UserAPIConstructor>>>;
 
 export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
   return class PostAPI extends Base {
@@ -105,8 +99,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
               (postId) => this.fetchPostComments(postId),
               (username) => this.fetchUser(username)
             )
-          :
-            this.parser.parsePost(
+          : this.parser.parsePost(
               children[0],
               null,
               null,
@@ -148,13 +141,11 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
         }
         const mappedPostResults = await Promise.all(
           children.map((child) =>
-            Abortable.wrap(() => this.parser.parsePost(
-              child,
-              user,
-              null,
-              false,
-              (postId) => this.fetchPostComments(postId)
-            ))
+            Abortable.wrap(() =>
+              this.parser.parsePost(child, user, null, false, (postId) =>
+                this.fetchPostComments(postId)
+              )
+            )
           )
         );
         const errorCount = mappedPostResults.reduce<number>(
@@ -220,13 +211,8 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
                   (postId) => this.fetchPostComments(postId),
                   (username) => this.fetchUser(username)
                 )
-              :
-                this.parser.parsePost(
-                  child,
-                  null,
-                  subreddit,
-                  false,
-                  (postId) => this.fetchPostComments(postId)
+              : this.parser.parsePost(child, null, subreddit, false, (postId) =>
+                  this.fetchPostComments(postId)
                 )
             )
           )
@@ -299,7 +285,6 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       return this.#redgifsFetcher.fetch(postId, contentURL, signal);
     }
 
-    
     async fetchPostComments(postId: string): Promise<FetchPostCommentsResult> {
       if (!this.config.fetchComments) {
         return {
@@ -333,7 +318,8 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           postId,
           children,
           stats,
-          (postId, more, stats) => this.fetchMorePostComments(postId, more, stats)
+          (postId, more, stats) =>
+            this.fetchMorePostComments(postId, more, stats)
         );
         this.log(
           'debug',
@@ -408,7 +394,8 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           postId,
           things,
           stats,
-          (postId, more, stats) => this.fetchMorePostComments(postId, more, stats)
+          (postId, more, stats) =>
+            this.fetchMorePostComments(postId, more, stats)
         );
       } catch (error) {
         if (!(error instanceof AbortError)) {

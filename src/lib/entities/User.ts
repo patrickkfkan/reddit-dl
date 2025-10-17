@@ -1,4 +1,5 @@
 import { type DownloadableImage } from './Common';
+import { type Subreddit } from './Subreddit';
 
 export interface User {
   username: string;
@@ -22,3 +23,13 @@ export interface UserWithCounts {
     savedComment: number;
   };
 }
+
+export type Subscription =
+  | {
+      type: 'subreddit';
+      subreddit: Subreddit;
+    }
+  | {
+      type: 'user';
+      username: string;
+    };

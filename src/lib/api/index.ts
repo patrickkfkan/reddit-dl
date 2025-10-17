@@ -8,7 +8,9 @@ import { type DownloadModeConfig } from '../DownloaderOptions';
 import type Limiter from '../utils/Limiter';
 import type Bottleneck from 'bottleneck';
 import { DEFAULT_LIMITER_NAME } from '../utils/Constants';
-import APIDataParser, { APIDataParserInstance } from './parser/APIDataParser';
+import APIDataParser, {
+  type APIDataParserInstance
+} from './parser/APIDataParser';
 import { SavedItemAPIMixin } from './SavedItem';
 
 export type APIConstructor = new (...args: any[]) => APIBase;
@@ -49,6 +51,8 @@ export class APIBase {
   }
 }
 
-const API = SavedItemAPIMixin(PostAPIMixin(SubredditAPIMixin(UserAPIMixin(APIBase))));
+const API = SavedItemAPIMixin(
+  PostAPIMixin(SubredditAPIMixin(UserAPIMixin(APIBase)))
+);
 
 export default API;

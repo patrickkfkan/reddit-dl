@@ -97,4 +97,12 @@ export class BrowseURLs {
   static getSavedItemsURL(user: User) {
     return `/u/${user.username}/saved`;
   }
+
+  static getJoinedSubredditsURL(joinedBy: User) {
+    return `/u/${joinedBy.username}/joined`;
+  }
+
+  static getFollowingURL(followedBy: User) {
+    return `/u/${followedBy.username}/following`;
+  }
 }

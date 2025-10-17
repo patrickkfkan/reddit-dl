@@ -1,12 +1,8 @@
-import {
-  type Post,
-  type PostComment,
-  PostType
-} from '../entities/Post';
+import { type Post, type PostComment, type PostType } from '../entities/Post';
 import { type User } from '../entities/User';
 import { Abortable, AbortError } from '../utils/Abortable';
 import ObjectHelper from '../utils/ObjectHelper';
-import { PostAPIConstructor } from './Post';
+import { type PostAPIConstructor } from './Post';
 
 const MAX_LIMIT = 100;
 
@@ -25,7 +21,9 @@ export interface FetchSavedItemsResult {
   errorCount: number;
 }
 
-export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(Base: TBase) {
+export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(
+  Base: TBase
+) {
   return class SavedItemAPI extends Base {
     async fetchSavedItems(
       params: FetchSavedItemsParams
@@ -64,13 +62,16 @@ export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(Base: TBase)
                     : linkId
                   : null;
                 const stats = { count: 0, errorCount: 0 };
-                const comment = (await this.parser.parsePostComment(
-                  postId,
-                  [child],
-                  stats, 
-                  (postId, more, stats) => this.fetchMorePostComments(postId, more, stats),
-                  false
-                ))[0];
+                const comment = (
+                  await this.parser.parsePostComment(
+                    postId,
+                    [child],
+                    stats,
+                    (postId, more, stats) =>
+                      this.fetchMorePostComments(postId, more, stats),
+                    false
+                  )
+                )[0];
                 return {
                   item: {
                     type: 'postComment' as const,
@@ -81,7 +82,7 @@ export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(Base: TBase)
                 };
               }
               // Post
-              const { post, errorCount } = 
+              const { post, errorCount } =
                 this.config.fetchPostAuthors ?
                   await this.parser.parsePost(
                     child,
@@ -91,8 +92,7 @@ export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(Base: TBase)
                     (postId) => this.fetchPostComments(postId),
                     (username) => this.fetchUser(username)
                   )
-                :
-                  await this.parser.parsePost(
+                : await this.parser.parsePost(
                     child,
                     null,
                     null,

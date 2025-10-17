@@ -51,6 +51,14 @@ function App() {
                   path="u/:username/saved"
                   element={<SavedItemListPage />}
                 />
+                <Route
+                  path="u/:joinedBy/joined"
+                  element={<SubredditListPage />}
+                />
+                <Route
+                  path="u/:followedBy/following"
+                  element={<UserListPage />}
+                />
                 <Route path="post/:postId" element={<PostPage />} />
                 <Route path="media" element={<MediaListPage />} />
                 <Route

@@ -1,12 +1,14 @@
-import { DownloadableImage } from "../../entities/Common";
-import { Logger, LogLevel } from "../../utils/logging";
-import { commonLog } from "../../utils/logging/Logger";
-import ObjectHelper from "../../utils/ObjectHelper";
-import { PostParserMixin } from "./PostParserMixin";
-import { SubredditParserMixin } from "./SubredditParserMixin";
-import { UserParserMixin } from "./UserParserMixin";
+import { type DownloadableImage } from '../../entities/Common';
+import { type Logger, type LogLevel } from '../../utils/logging';
+import { commonLog } from '../../utils/logging/Logger';
+import ObjectHelper from '../../utils/ObjectHelper';
+import { PostParserMixin } from './PostParserMixin';
+import { SubredditParserMixin } from './SubredditParserMixin';
+import { UserParserMixin } from './UserParserMixin';
 
-export type APIDataParserConstructor = new (...args: any[]) => APIDataParserBase;
+export type APIDataParserConstructor = new (
+  ...args: any[]
+) => APIDataParserBase;
 
 export type APIDataParserInstance = InstanceType<typeof APIDataParser>;
 
@@ -14,7 +16,7 @@ export class APIDataParserBase {
   name = 'APIDataParser';
 
   protected logger?: Logger | null;
-  
+
   constructor(logger?: Logger | null) {
     this.logger = logger;
   }
@@ -29,7 +31,6 @@ export class APIDataParserBase {
     commonLog(this.logger, level, this.name, ...msg);
   }
 
-
   protected mapDownloadableImage(
     data: any,
     srcProperty: string
@@ -39,6 +40,8 @@ export class APIDataParserBase {
   }
 }
 
-const APIDataParser = PostParserMixin(SubredditParserMixin(UserParserMixin(APIDataParserBase)));
+const APIDataParser = PostParserMixin(
+  SubredditParserMixin(UserParserMixin(APIDataParserBase))
+);
 
 export default APIDataParser;
