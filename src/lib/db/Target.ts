@@ -119,6 +119,19 @@ export function TargetDBMixin<TBase extends DBConstructor>(Base: TBase) {
       }
     }
 
+    lookupTarget(target: ResolvedTarget): ResolvedTarget | null {
+      const targetId = this.#getTargetId(target);
+      try {
+        const result = this.db
+          .prepare(`SELECT details FROM target WHERE target_id = ?`)
+          .get(targetId) as { details: string } | undefined;
+        return result ? JSON.parse(result.details) : null;
+      } catch (error) {
+        this.log('error', `Failed to look up target "${targetId}":`, error);
+        return null;
+      }
+    }
+
     #getTargetId(details: ResolvedTarget) {
       switch (details.type) {
         case 'user_submitted':

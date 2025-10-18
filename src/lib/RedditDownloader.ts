@@ -473,7 +473,7 @@ export class RedditDownloaderBase {
       }
       case 'my_saved': {
         const { me } = await this.#createAndSaveMeTarget(
-          target,
+          'my/saved',
           runTimestamp,
           stats
         );
@@ -630,7 +630,7 @@ export class RedditDownloaderBase {
       }
       case 'my_joined': {
         const { me } = await this.#createAndSaveMeTarget(
-          target,
+          'my/joined',
           runTimestamp,
           stats
         );
@@ -694,7 +694,7 @@ export class RedditDownloaderBase {
       }
       case 'my_following': {
         const { me } = await this.#createAndSaveMeTarget(
-          target,
+          'my/following',
           runTimestamp,
           stats
         );
@@ -755,7 +755,7 @@ export class RedditDownloaderBase {
   }
 
   async #createAndSaveMeTarget(
-    target: string,
+    target: (ResolvedTarget & { type: 'me' })['rawValue'][number],
     runTimestamp: number,
     stats: TargetDownloadStats
   ) {
@@ -768,12 +768,19 @@ export class RedditDownloaderBase {
     let me = await Abortable.wrap(() => api.fetchMe());
     this.log('debug', `Fetched user "${me.username}"`);
 
-    const resolvedTarget: ResolvedTarget = {
+    let resolvedTarget: ResolvedTarget = {
       type: 'me',
-      rawValue: target,
+      rawValue: [target],
       runTimestamp,
       me
     };
+    const dbTarget = db.lookupTarget(resolvedTarget);
+    if (dbTarget && dbTarget.type === 'me') {
+      resolvedTarget = dbTarget;
+      if (!resolvedTarget.rawValue.includes(target)) {
+        resolvedTarget.rawValue.push(target);
+      }
+    }
     if (this.config.saveTargetToDB) {
       db.saveTarget(resolvedTarget);
       this.log('info', `Saved target info`);

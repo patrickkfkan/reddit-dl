@@ -239,6 +239,11 @@ export default class RedditDownloaderCLI {
     } | null = null;
     let oauth: OAuthParams | null = null;
 
+    // OAuth
+    if (options.auth) {
+      oauth = OAuth.readOAuthParamsFromFile(options.auth);
+    }
+
     const target = options.target;
     // Test if target points to a file
     if (existsSync(target)) {
@@ -281,7 +286,7 @@ export default class RedditDownloaderCLI {
       const targetTypes = value.substring('previous/'.length).trim().split('');
       if (targetTypes.length === 0) {
         throw Error(
-          `Target "${value}" is invalid: "previous/" must be followed by a combination of "r", "u" and "p".`
+          `Target "${value}" is invalid: "previous/" must be followed by a combination of "r", "u", "p", "s", "j" and "f".`
         );
       }
       for (const tt of targetTypes) {
@@ -292,9 +297,11 @@ export default class RedditDownloaderCLI {
           resolvedTargetType = 'user_submitted';
         } else if (tt === 'p') {
           resolvedTargetType = 'post';
+        } else if (tt === 's' || tt === 'j' || tt === 'f') {
+          resolvedTargetType = 'me';
         } else {
           throw Error(
-            `Unknown flag "${tt}" in target "${value}": must be one of "r", "u" and "p"`
+            `Unknown flag "${tt}" in target "${value}": must be one of "r", "u", "p", "s", "j" and "f"`
           );
         }
         if (!previousTargetTypes.includes(resolvedTargetType)) {
@@ -329,9 +336,37 @@ export default class RedditDownloaderCLI {
         offset: 0
       });
       for (const t of targets) {
-        if (!parsedTarget.targets.includes(t.rawValue)) {
-          parsedTarget.targets.push(t.rawValue);
-          addedPreviousTargets.push(t.rawValue);
+        const rawValues: string[] = [];
+        if (t.type === 'me') {
+          if (!oauth || t.me.username !== oauth.username) {
+            continue;
+          }
+          if (
+            previousTargetFlags.includes('s') &&
+            t.rawValue.includes('my/saved')
+          ) {
+            rawValues.push('my/saved');
+          }
+          if (
+            previousTargetFlags.includes('j') &&
+            t.rawValue.includes('my/joined')
+          ) {
+            rawValues.push('my/joined');
+          }
+          if (
+            previousTargetFlags.includes('f') &&
+            t.rawValue.includes('my/following')
+          ) {
+            rawValues.push('my/following');
+          }
+        } else {
+          rawValues.push(t.rawValue);
+        }
+        for (const rv of rawValues) {
+          if (!parsedTarget.targets.includes(rv)) {
+            parsedTarget.targets.push(rv);
+            addedPreviousTargets.push(rv);
+          }
         }
       }
     }
@@ -381,10 +416,6 @@ export default class RedditDownloaderCLI {
       }
       console.error('');
       throw Error('Invalid target');
-    }
-    // OAuth
-    if (options.auth) {
-      oauth = OAuth.readOAuthParamsFromFile(options.auth);
     }
     const { chainLogger, fileLogger } = this.#createLoggers(options);
     return {

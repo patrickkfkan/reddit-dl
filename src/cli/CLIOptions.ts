@@ -76,7 +76,7 @@ export function getCLIOptions(): CLIOptions<DownloaderMode> {
         options: {
           target:
             _continue ?
-              commandLineOptions.target?.value || 'previous/rup'
+              commandLineOptions.target?.value || 'previous/rupsjf'
             : CLIOptionValidator.validateRequired(
                 commandLineOptions.target,
                 'No target specified'
