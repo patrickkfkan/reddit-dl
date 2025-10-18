@@ -360,16 +360,29 @@ export default class CommandLineParser {
         `"https://www.reddit.com/user/<username>/comments/<post_id>/..."`,
         `"p/<post_id>"${EOL}`,
 
-        `Download your saved posts / comments (requires authentication)`,
-        '--------------------------------------------------------------',
-        `"me/saved"${EOL}`,
+        `Download saved content`,
+        '----------------------',
+        `"my/saved"${EOL}`,
+
+        `Download posts from subreddits you've joined`,
+        '--------------------------------------------',
+        `"my/joined"${EOL}`,
+
+        `Download posts by users you're following`,
+        '----------------------------------------',
+        `"my/following"${EOL}`,
 
         'Download previous targets',
         '-------------------------',
         `"previous/r: - previous "subreddit" targets`,
         `"previous/u: - previous "user" targets`,
-        `"previous/p: - previous "post" targets${EOL}`,
-        `Combine "r", "u" and "p" to specify multiple previous target types. E.g. "previous/ru" will download from previous "subreddit" and "user" targets. Used with the "--continue" option, you can fetch new content since last download without having to specify each target manually.`
+        `"previous/p: - previous "post" targets`,
+        `"previous/s: - previous "my/saved" targets`,
+        `"previous/j: - previous "my/joined" targets`,
+        `"previous/f: - previous "my/following" targets${EOL}`,
+        `Combine "r", "u", "p", "s", "j" and "f" to specify multiple previous target types. E.g. "previous/ru" will download from previous "subreddit" and "user" targets. Used with the "--continue" option, you can fetch new content since last download without having to specify each target manually.${EOL}`,
+
+        `Note that "my/..." targets require authentication, as do "previous/..." with "s", "j" and "f" flags.${EOL}`
       ];
 
       const fileContent = [
@@ -379,9 +392,7 @@ export default class CommandLineParser {
       const authContent = [
         `reddit-dl retrieves content primarily through API requests. However, Reddit enforces rate limits, restricting the number of requests within a given timeframe. Once the limit is reached, reddit-dl will pause downloads until it resets.${EOL}`,
 
-        `Authentication provides access to a higher API rate limit. In addition, it allows access to content specific to the authenticated user ("me/..." targets).${EOL}`,
-
-        `To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to reddit-dl using the --auth option.${EOL}`,
+        `Authentication provides access to a higher API rate limit. In addition, it enables downloading account-specific content. To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to reddit-dl using the --auth option.${EOL}`,
 
         `Detailed instructions are provided in the sample auth file here: {underline ${PROJECT_URL}/blob/main/auth.conf}${EOL}`
       ];

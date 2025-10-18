@@ -43,7 +43,7 @@ $ reddit-dl -o "C:\Reddit-Stuff" --comments --post-authors "r/funny"
 $ reddit-dl "https://www.reddit.com/r/<subreddit>>/comments/<post_id>/<slug>/"
 
 // Download your saved posts / comments
-// See "Authentication" section for -x option
+// Note usage of -x option, which is required when downloading account-specific content.
 $ reddit-dl -x auth.conf "my/saved"
 
 // Download posts from subreddits you've joined
@@ -99,14 +99,42 @@ $ reddit-dl [OPTION]... TARGET or FILE
 | `https://www.reddit.com/r/<subreddit>/comments/<post_id>/<slug>/` | Single post from subreddit |
 | `https://www.reddit.com/user/<username>/comments/<post_id>/<slug>/` | Single post by user |
 | `p/<post_id>` | Single post identified by `post_id` |
-| `my/saved` | Your saved posts / comments. Requires [authentication](#authentication). |
-| `my/joined` | Posts from subreddits you've joined. Requires [authentication](#authentication). |
-| `my/following` | Posts by users you're following. Requires [authentication](#authentication). |
-| `previous/<flags>`| Download previous targets matching `flag`, which can be:<ul><li>`r`: previous "subreddit" targets</li><li>`u`: previous "user" targets</li><li>`p`: previous "post" targets</li></ul> Combine `r`, `u` and `p` to specify multiple previous target types. See [Downloading new content since last download](#downloading-new-content-since-last-download) for example usage.</p> |
+| `my/saved`<sup>*</sup> | Your saved posts / comments |
+| `my/joined`<sup>*</sup> | Posts from subreddits you've joined |
+| `my/following`<sup>*</sup> | Posts by users you're following |
+| `previous/<flags>`| Download previous targets matching `flag`, which can be:<ul><li>`r`: previous "subreddit" targets</li><li>`u`: previous "user" targets</li><li>`p`: previous "post" targets</li><li>`s`: previous "my/saved" targets</li><li>`j`: previous "my/joined" targets</li><li>`f`: previous "my/following" targets</li></ul> Combine `r`, `u`, `p`, `s`, `j` and `f` to specify multiple previous target types. See [Downloading new content since last download](#downloading-new-content-since-last-download) for example usage.</p> |
+
+<sup>*</sup> Requires authentication; see [Account specific content](#account-specific-content).
+
+#### Multiple targets
 
 Multiple targets may be provided in a file. The file must be in plain text format with each target placed on its own line. Lines starting with `#` are ignored.
 
-Download options:
+```
+$ reddit-dl targets.txt
+
+// targets.txt
+--------------------
+u/johndoe
+r/funny
+# This line is ignored
+r/audiophile
+```
+
+
+#### Account-specific content
+
+The following targets relate to account-specific content:
+
+- `my/saved`
+- `my/joined`
+- `my/following`
+- `previous/...` used with `s`, `j` or `f` flags
+
+To download from these targets, you need to be [authenticated](#authentication). The content downloaded will be specific to the account associated with the authentication credentials. You can pass different credentials each time you run `reddit-dl` to download from different accounts.
+
+
+#### Download options
 
 | Option  | Alias | Description |
 |---------|-------|-------------|
@@ -150,7 +178,7 @@ $ reddit-dl --continue "previous/ru"
 $ reddit-dl --continue "previous/u"
 ```
 
-With the `--continue` option, you may omit `TARGET` completely to download from all previous targets (subreddits, users and single posts):
+With the `--continue` option, you may omit `TARGET` completely to download from all previous targets:
 
 ```
 $ reddit-dl --continue
@@ -160,9 +188,7 @@ $ reddit-dl --continue
 
 `reddit-dl` retrieves content primarily through API requests. However, Reddit enforces rate limits, restricting the number of requests within a given timeframe. Once the limit is reached, `reddit-dl` will pause downloads until it resets.
                                                                                 
-Authentication provides access to a higher API rate limit. In addition, it allows access to content specific to the authenticated user (`me/...` targets).
-
-To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to `reddit-dl` using the `--auth` / `-x` option.
+Authentication provides access to a higher API rate limit. In addition, it enables downloading [account-specific content](#account-specific-content). To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to `reddit-dl` using the `--auth` / `-x` option.
                                                                                
 You will find detailed instructions in the [sample auth file](./auth.conf).
 
