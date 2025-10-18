@@ -68,7 +68,7 @@ export default class RedditDownloaderCLI {
 
     let startParams;
     try {
-      startParams = this.#getStartParams();
+      startParams = await this.#getStartParams();
     } catch (error) {
       console.error(
         'Error processing options: ',
@@ -216,11 +216,11 @@ export default class RedditDownloaderCLI {
     }
   }
 
-  #getStartParams(): StartParams<DownloaderMode> {
+  async #getStartParams(): Promise<StartParams<DownloaderMode>> {
     const { mode, options } = getCLIOptions();
     switch (mode) {
       case DownloaderMode.DOWNLOAD:
-        return this.#getDownloadModeStartParams(
+        return await this.#getDownloadModeStartParams(
           options as CLIOptions<DownloaderMode.DOWNLOAD>['options']
         );
       case DownloaderMode.BROWSE:
@@ -230,9 +230,9 @@ export default class RedditDownloaderCLI {
     }
   }
 
-  #getDownloadModeStartParams(
+  async #getDownloadModeStartParams(
     options: CLIOptions<DownloaderMode.DOWNLOAD>['options']
-  ): StartParams<DownloaderMode.DOWNLOAD> {
+  ): Promise<StartParams<DownloaderMode.DOWNLOAD>> {
     let parsedTarget: {
       src: 'cli' | 'file';
       targets: string[];
@@ -328,7 +328,7 @@ export default class RedditDownloaderCLI {
           `Previous targets specified, but DB file "${dbFilePath}" does not exist`
         );
       }
-      const db = DB.getInstance(dbFilePath);
+      const db = await DB.getInstance(dbFilePath);
       const targets = db.getTargets({
         type: previousTargetTypes,
         sortBy: 'leastRecentlyRun',

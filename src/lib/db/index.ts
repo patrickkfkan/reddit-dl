@@ -25,9 +25,9 @@ export class DBBase {
     this.logger = logger;
   }
 
-  static getInstance(file: string, logger?: Logger | null) {
+  static async getInstance(file: string, logger?: Logger | null) {
     if (!this.instance) {
-      const db = openDB(file, logger);
+      const db = await openDB(file, logger);
       this.instance = new DB(db, logger);
     }
     return this.instance;

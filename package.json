@@ -63,6 +63,7 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "@types/sanitize-html": "^2.16.0",
+    "@types/semver": "^7.7.1",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "@vitejs/plugin-react": "^4.5.2",
@@ -111,6 +112,7 @@
     "react-router": "^7.6.1",
     "sanitize-filename": "^1.6.3",
     "sanitize-html": "^2.16.0",
+    "semver": "^7.7.3",
     "sqlite": "^5.1.1",
     "undici": "^7.4.0"
   },

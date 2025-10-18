@@ -39,7 +39,7 @@ export class WebServer {
     if (!existsSync(dbFile)) {
       throw Error(`DB file "${dbFile}" does not exist`);
     }
-    const db = DB.getInstance(dbFile, this.#config.logger);
+    const db = await DB.getInstance(dbFile, this.#config.logger);
     const handler = new WebRequestHandler(
       db,
       this.#config.dataDir,

@@ -1,9 +1,11 @@
 import Database from 'better-sqlite3';
+import semver from 'semver';
 import { type Logger } from '../utils/logging';
 import { existsSync } from 'fs';
 import { commonLog } from '../utils/logging/Logger';
+import { updateDB } from './Update';
 
-const DB_SCHEMA_VERSION = '1.0.0';
+const DB_SCHEMA_VERSION = '1.1.0';
 
 const POST_FTS_SOURCE_DELETE_SQL = `DELETE FROM post_fts_source WHERE post_id = old.post_id;`;
 const POST_FTS_SOURCE_INSERT_SQL = `
@@ -355,7 +357,7 @@ const SAVED_ITEM_FTS_INIT = `
   END;
 `;
 
-export function openDB(file: string, logger?: Logger | null) {
+export async function openDB(file: string, logger?: Logger | null) {
   const dbFileExists = existsSync(file);
 
   commonLog(
@@ -412,12 +414,12 @@ export function openDB(file: string, logger?: Logger | null) {
         "username"	TEXT,
         "post_count" NUMBER,
         "media_count" NUMBER,
-        -- v1.1.0 --
+        -- ADD: v1.1.0 --
         "saved_post_count" NUMBER,
         "saved_comment_count" NUMBER,
         "joined_subreddit_count" NUMBER,
         "following_count" NUMBER,
-        ------------
+        -----------------
         "karma" NUMBER,
         "details"	TEXT NOT NULL,
         PRIMARY KEY("username")
@@ -633,7 +635,7 @@ export function openDB(file: string, logger?: Logger | null) {
         FOREIGN KEY("media_id") REFERENCES "media"("media_id")
       );
 
-      -- v1.1.0
+      -- ADD: v1.1.0 --
       CREATE TABLE IF NOT EXISTS "saved_item" (
         "item_id"	TEXT,
         "item_type" TEXT,
@@ -661,13 +663,15 @@ export function openDB(file: string, logger?: Logger | null) {
         FOREIGN KEY("username") REFERENCES "user"("username"),
         FOREIGN KEY("followed_by") REFERENCES "user"("username")
       );
-      ------------
+      -----------------
 
       ${POST_FTS_INIT}
       ${SUBREDDIT_FTS_INIT}
       ${USER_FTS_INIT}
       ${POST_COMMENT_FTS_INIT}
+      -- ADD: v1.1.0 --
       ${SAVED_ITEM_FTS_INIT}
+      -----------------
 
       COMMIT;
     `);
@@ -678,19 +682,19 @@ export function openDB(file: string, logger?: Logger | null) {
       DB_SCHEMA_VERSION
     );
   } else {
-    checkDBSchemaVersion(db, logger);
+    await checkDBSchemaVersion(db, logger);
   }
 
   return db;
 }
 
-function checkDBSchemaVersion(db: Database.Database, logger?: Logger | null) {
-  const result = db
-    .prepare(`SELECT value FROM env WHERE env_key = ?`)
-    .get('db_schema_version') as { value: string } | undefined;
-  const version = result?.value || '';
+async function checkDBSchemaVersion(
+  db: Database.Database,
+  logger?: Logger | null
+) {
+  const version = getSchemaVersionFromDB(db);
   if (version) {
-    commonLog(logger, 'debug', 'DB', `DB schema version: ${version}`);
+    commonLog(logger, 'info', 'DB', `DB schema version: ${version}`);
   } else {
     commonLog(
       logger,
@@ -701,5 +705,25 @@ function checkDBSchemaVersion(db: Database.Database, logger?: Logger | null) {
     return;
   }
 
-  // Code to be added here if schema needs to be updatd
+  if (semver.lt(DB_SCHEMA_VERSION, version)) {
+    throw Error(
+      `DB schema version v${version} is newer than v${DB_SCHEMA_VERSION} supported by this version of reddit-dl. Update reddit-dl and try again.`
+    );
+  }
+  if (semver.gt(DB_SCHEMA_VERSION, version)) {
+    await updateDB(db, version, logger);
+    commonLog(
+      logger,
+      'info',
+      'DB',
+      `Updated DB schema version: ${getSchemaVersionFromDB(db)}`
+    );
+  }
+}
+
+function getSchemaVersionFromDB(db: Database.Database) {
+  const result = db
+    .prepare(`SELECT value FROM env WHERE env_key = ?`)
+    .get('db_schema_version') as { value: string } | undefined;
+  return result?.value || '';
 }
