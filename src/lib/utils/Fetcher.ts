@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { pipeline } from 'stream/promises';
 import { URL } from 'url';
 import path from 'path';
+import semver from 'semver';
 import { fetch, Request, type Response } from 'undici';
 import { type LogLevel } from './logging/Logger.js';
 import { commonLog } from './logging/Logger.js';
@@ -507,7 +508,12 @@ export default class Fetcher {
       const inputOptions = [
         '-protocol_whitelist crypto,http,https,tcp,tls,httpproxy'
       ];
-      if (ext === '.m3u8' && this.#getFFmpegVersion().startsWith('7.')) {
+      // `extension_picky` introduced in v7.1.1
+      const supportsExtensionPicky = semver.satisfies(
+        this.#getFFmpegVersion(),
+        '>=7.1.1'
+      );
+      if (ext === '.m3u8' && supportsExtensionPicky) {
         inputOptions.push('-extension_picky 0');
       }
       const ffmpegCommand = ffmpeg(src)
