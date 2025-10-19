@@ -13,6 +13,7 @@ import {
 } from '../../../web/types/Page';
 import { utcSecondsToDate } from '../../utils/Misc';
 import { BrowseURLs } from './BrowseURLs';
+import FSHelper from '../../utils/FSHelper';
 
 export type MediaPageListDomain = 'subreddit' | 'user' | 'all';
 
@@ -93,6 +94,13 @@ export function MediaWebRequestHandlerMixin<
   TBase extends WebRequestHandlerConstructor
 >(Base: TBase) {
   return class MediaWebRequestHandler extends Base {
+    #dbDir: string;
+
+    constructor(...args: any[]) {
+      super(...args);
+      this.#dbDir = FSHelper.getDBDir(this.dataDir);
+    }
+
     handleMediaRequest(type: 'image' | 'video', req: Request, res: Response) {
       const file = req.query.file;
       if (!file) {
@@ -102,6 +110,15 @@ export function MediaWebRequestHandlerMixin<
         throw TypeError('Invalid param "file"');
       }
       const mediaFilePath = path.resolve(this.dataDir, file);
+
+      if (
+        !FSHelper.isSubPath(mediaFilePath, this.dataDir) ||
+        FSHelper.isSubPath(mediaFilePath, this.#dbDir)
+      ) {
+        res.status(403).send('Forbidden');
+        return;
+      }
+
       if (!fs.existsSync(mediaFilePath)) {
         res.status(404).send('Media not found');
         return;

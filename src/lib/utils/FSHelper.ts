@@ -24,7 +24,7 @@ export default class FSHelper {
   }
 
   async mkdirForDB() {
-    const dbDir = path.resolve(this.#config.dataDir, 'db');
+    const dbDir = FSHelper.getDBDir(this.#config.dataDir);
     await this.#mkdirIfNotExists(dbDir);
     return dbDir;
   }
@@ -144,5 +144,16 @@ export default class FSHelper {
       stream.on('data', (data) => hash.update(data));
       stream.on('end', () => resolve(hash.digest('hex')));
     });
+  }
+
+  static isSubPath(childPath: string, parentPath: string) {
+    const relative = path.relative(parentPath, childPath);
+    return (
+      !!relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+    );
+  }
+
+  static getDBDir(dataDir: string) {
+    return path.resolve(dataDir, 'db');
   }
 }
