@@ -10,6 +10,10 @@ A console application for downloading Reddit content.
   - posts submitted by a specific user
   - posts from a subreddit
   - individual posts
+- Supports account-specific content:
+  - saved posts and comments
+  - posts from subreddits you've joined
+  - posts by users you're following
 - For each post, downloaded content includes:
   - body text of the post 
   - Reddit-hosted images, galleries and videos
@@ -257,6 +261,11 @@ $ npm run make
 ```
 
 ## Changelog
+
+v1.1.0
+- New targets for downloading account-specific content
+- Add `--timeout` option
+- (browse) Fix path traversal vulnerability in media file requests
 
 v1.0.0
 - Initial release

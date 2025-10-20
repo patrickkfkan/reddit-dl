@@ -1,6 +1,6 @@
 {
   "name": "reddit-dl",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reddit Downloader",
   "type": "commonjs",
   "exports": "./dist/index.js",
@@ -113,7 +113,6 @@
     "sanitize-filename": "^1.6.3",
     "sanitize-html": "^2.16.0",
     "semver": "^7.7.3",
-    "sqlite": "^5.1.1",
     "undici": "^7.4.0"
   },
   "keywords": [
