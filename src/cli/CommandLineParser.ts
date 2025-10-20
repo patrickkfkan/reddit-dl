@@ -44,6 +44,7 @@ const DOWNLOAD_MODE_ARGS = {
   maxRetries: 'max-retries',
   maxConcurrent: 'max-concurrent',
   minTime: 'min-time',
+  timeout: 'timeout',
   proxy: 'proxy',
   proxyInsecure: 'proxy-insecure',
   pathToFFmpeg: 'ffmpeg',
@@ -182,6 +183,13 @@ const DOWNLOAD_MODE_OPT_DEFS: commandLineUsage.OptionDefinition[] = [
     typeLabel: '<milliseconds>'
   },
   {
+    name: DOWNLOAD_MODE_ARGS.timeout,
+    description: 'Minimum time allowed before request timeout. Default: 60',
+    alias: 't',
+    type: Number,
+    typeLabel: '<seconds>'
+  },
+  {
     name: DOWNLOAD_MODE_ARGS.proxy,
     description:
       'Use the specified proxy. The URI follows this scheme: "protocol://[username:[password]]@host:port". Protocol can be http, https, socks4 or socks5.',
@@ -306,6 +314,7 @@ export default class CommandLineParser {
               maxRetries: __getValue(DOWNLOAD_MODE_ARGS.maxRetries),
               maxConcurrent: __getValue(DOWNLOAD_MODE_ARGS.maxConcurrent),
               minTime: __getValue(DOWNLOAD_MODE_ARGS.minTime),
+              timeout: __getValue(DOWNLOAD_MODE_ARGS.timeout),
               proxy: {
                 url: __getValue(DOWNLOAD_MODE_ARGS.proxy),
                 rejectUnauthorizedTLS: __getValue(

@@ -1,6 +1,6 @@
 import { type Post, type PostComment, type PostType } from '../entities/Post';
 import { type User } from '../entities/User';
-import { Abortable, AbortError } from '../utils/Abortable';
+import { Abortable, isAbortError } from '../utils/Abortable';
 import ObjectHelper from '../utils/ObjectHelper';
 import { type PostAPIConstructor } from './Post';
 
@@ -31,18 +31,15 @@ export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(
       const { user, after, limit = MAX_LIMIT } = params;
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/user/${user.username}/saved.json`,
-              params: {
-                raw_json: '1',
-                sr_detail: '1',
-                limit: String(limit),
-                after: after || null
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/user/${user.username}/saved.json`,
+            params: {
+              raw_json: '1',
+              sr_detail: '1',
+              limit: String(limit),
+              after: after || null
+            }
+          })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -147,7 +144,7 @@ export function SavedItemAPIMixin<TBase extends PostAPIConstructor>(
           after: dataAfter
         };
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           this.log(
             'error',
             `Failed to fetch saved items for user ${user.username}:`,

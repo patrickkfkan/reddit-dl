@@ -10,12 +10,13 @@ import { ensureDirSync } from 'fs-extra';
 import { sleepBeforeExecute } from './Misc.js';
 import { createProxyAgent, type ProxyAgentInfo } from './Proxy.js';
 import ffmpeg from 'fluent-ffmpeg';
-import { Abortable, AbortError } from './Abortable.js';
+import { Abortable, AbortError, isAbortError } from './Abortable.js';
 import OAuth from './OAuth.js';
 import { OAUTH_URL, SITE_URL } from './Constants.js';
 import { type DownloadModeConfig } from '../DownloaderOptions.js';
 import { getFFmpegVersion } from './FFmpegInfo.js';
 import FSHelper from './FSHelper.js';
+import { PassThrough, Readable } from 'stream';
 
 const RETRY_INTERVAL = 1000;
 const RETRY_INTERVAL_429 = 300000; // 5 mins
@@ -23,7 +24,6 @@ const RETRY_INTERVAL_429 = 300000; // 5 mins
 export interface FetcherDownloadParams {
   src: string;
   dest: string;
-  signal: AbortSignal;
 }
 
 export interface StartDownloadOverrides {
@@ -85,6 +85,13 @@ export class FetcherError extends Error {
     if (cause) {
       this.cause = cause;
     }
+  }
+}
+
+export class TimeoutError extends Error {
+  constructor(...args: any[]) {
+    super(...args);
+    this.name = 'TimeoutError';
   }
 }
 
@@ -199,12 +206,8 @@ export default class Fetcher {
     return this.#ffmpegVersion;
   }
 
-  async fetchHTML(args: {
-    url: string;
-    signal: AbortSignal;
-    hybrid?: boolean;
-  }) {
-    const { url, signal, hybrid } = args;
+  async fetchHTML(args: { url: string; hybrid?: boolean }) {
+    const { url, hybrid } = args;
     const headers: Record<string, string> = {};
     if (hybrid) {
       headers['Accept-Language'] = 'en-GB,en;q=0.5';
@@ -213,7 +216,6 @@ export default class Fetcher {
     return this.fetchWithRetry({
       url,
       headers,
-      signal,
       processResponse: async (res) => ({
         html: await res.text()
       })
@@ -234,10 +236,9 @@ export default class Fetcher {
   async fetchAPI(args: {
     endpoint: string;
     params: Record<string, string | null | undefined>;
-    signal: AbortSignal;
     requiresAuth?: boolean;
   }) {
-    const { endpoint, params, signal, requiresAuth = false } = args;
+    const { endpoint, params, requiresAuth = false } = args;
     const baseURL = this.#accessToken ? OAUTH_URL : SITE_URL;
     const url = new URL(endpoint, baseURL);
     const headers: Record<string, string> = {};
@@ -273,7 +274,6 @@ export default class Fetcher {
         }
         return true;
       },
-      signal,
       processResponse: async (res) => ({
         json: await res.json()
       })
@@ -292,7 +292,6 @@ export default class Fetcher {
         : M extends 'GET' ? Response & { body: NodeJS.ReadableStream }
         : never
       ) => Promise<R>;
-      signal: AbortSignal;
     },
     rt = 0
   ): Promise<R & { lastURL: string }> {
@@ -302,8 +301,7 @@ export default class Fetcher {
       headers,
       onResponse,
       onRequestRetry,
-      processResponse,
-      signal
+      processResponse
     } = args;
     const urlObj = new URL(url);
     const request = new Request(urlObj, {
@@ -321,9 +319,26 @@ export default class Fetcher {
     }
     try {
       this.log('debug', `${rt > 0 ? `(Retry #${rt}) ` : ''}${method} "${url}"`);
-      const res = await fetch(request, {
-        signal,
-        dispatcher: this.#proxyAgentInfo?.agent
+      const res = await Abortable.wrap((controller) => {
+        const timeout = setTimeout(() => {
+          controller.abort(new TimeoutError(`Timeout exceeded`));
+        }, this.#config.request.timeout * 1000);
+        try {
+          return fetch(request, {
+            signal: controller.signal,
+            dispatcher: this.#proxyAgentInfo?.agent
+          });
+        } catch (error) {
+          const signal = controller.signal;
+          if (signal.aborted) {
+            throw signal.reason instanceof Error ?
+                signal.reason
+              : new AbortError();
+          }
+          throw error;
+        } finally {
+          clearTimeout(timeout);
+        }
       });
 
       if (onResponse) {
@@ -343,10 +358,10 @@ export default class Fetcher {
         lastURL: res.url
       };
     } catch (error) {
-      if (signal.aborted) {
-        throw new AbortError();
-      }
-      if (error instanceof FetcherError && error.fatal) {
+      if (
+        isAbortError(error) ||
+        (error instanceof FetcherError && error.fatal)
+      ) {
         throw error;
       }
       const maxRetries = this.#config.request.maxRetries;
@@ -362,12 +377,9 @@ export default class Fetcher {
               'error',
               `Hit rate limit while fetching "${url}" - will retry in ${retryInterval / 1000} seconds`
             );
-            return Abortable.wrap((_signal) =>
-              sleepBeforeExecute(
-                () => this.fetchWithRetry(args, rt + 1),
-                retryInterval,
-                _signal
-              )
+            return sleepBeforeExecute(
+              () => this.fetchWithRetry(args, rt + 1),
+              retryInterval
             );
           }
         } else {
@@ -378,12 +390,9 @@ export default class Fetcher {
             : -1;
           if (retryInterval > 0) {
             this.log('error', `Error fetching "${url}" - will retry:`, error);
-            return Abortable.wrap((_signal) =>
-              sleepBeforeExecute(
-                () => this.fetchWithRetry(args, rt + 1),
-                RETRY_INTERVAL,
-                _signal
-              )
+            return sleepBeforeExecute(
+              () => this.fetchWithRetry(args, rt + 1),
+              RETRY_INTERVAL
             );
           }
         }
@@ -399,13 +408,12 @@ export default class Fetcher {
     }
   }
 
-  async test(url: string, signal: AbortSignal): Promise<FetcherTestResult> {
+  async test(url: string): Promise<FetcherTestResult> {
     let lastURL = url;
     try {
       return await this.fetchWithRetry({
         url,
         method: 'HEAD',
-        signal,
         onResponse: (res) => {
           lastURL = res.url;
         },
@@ -424,7 +432,7 @@ export default class Fetcher {
     params: FetcherDownloadParams,
     rt = 0
   ): Promise<FetcherDownloadResult> {
-    const { src, dest, signal } = params;
+    const { src, dest } = params;
     const destFilePath = path.resolve(dest);
     const { dir: destDir } = path.parse(destFilePath);
     const tmpFilePath = this.#getTmpFilePath(destFilePath);
@@ -435,14 +443,42 @@ export default class Fetcher {
       }
     });
     try {
-      const res = await fetch(request, {
-        signal,
-        dispatcher: this.#proxyAgentInfo?.agent
+      const res = await Abortable.wrap((controller) => {
+        try {
+          return fetch(request, {
+            signal: controller.signal,
+            dispatcher: this.#proxyAgentInfo?.agent
+          });
+        } catch (error) {
+          if (controller.signal.aborted) {
+            throw new AbortError();
+          }
+          throw error;
+        }
       });
+
       if (this.#assertResponseOK(res, src)) {
+        const passthrough = new PassThrough();
+        let timeout: NodeJS.Timeout;
+        const resetTimeout = () => {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            passthrough.destroy(new TimeoutError('Timeout exceeded'));
+          }, this.#config.request.timeout * 1000);
+        };
+        const nodeStream = Readable.fromWeb(res.body);
+        // Reset timeout on incoming data
+        nodeStream.on('data', resetTimeout);
+        // Start the initial timeout
+        resetTimeout();
+
         ensureDirSync(destDir);
         this.log('debug', `Download: "${src}" -> "${tmpFilePath}"`);
-        await pipeline(res.body, fs.createWriteStream(tmpFilePath));
+        await pipeline(
+          nodeStream,
+          passthrough,
+          fs.createWriteStream(tmpFilePath)
+        );
         return {
           tmpFilePath,
           commit: () => this.#commitDownload(tmpFilePath, destFilePath),
@@ -451,10 +487,10 @@ export default class Fetcher {
       }
     } catch (error) {
       this.#cleanupDownload(tmpFilePath);
-      if (signal.aborted) {
-        throw new AbortError();
-      }
-      if (error instanceof FetcherError && error.fatal) {
+      if (
+        isAbortError(error) ||
+        (error instanceof FetcherError && error.fatal)
+      ) {
         throw error;
       }
       const maxRetries = this.#config.request.maxRetries;
@@ -464,21 +500,15 @@ export default class Fetcher {
             'error',
             `Got "429 - Too many requests" error while attempting to download "${src}" - will retry in ${RETRY_INTERVAL_429 / 1000} seconds`
           );
-          return Abortable.wrap((_signal) =>
-            sleepBeforeExecute(
-              () => this.downloadFile({ src, dest, signal }, rt + 1),
-              RETRY_INTERVAL_429,
-              _signal
-            )
+          return sleepBeforeExecute(
+            () => this.downloadFile({ src, dest }, rt + 1),
+            RETRY_INTERVAL_429
           );
         }
         this.log('error', `Error downloading "${src}" - will retry: `, error);
-        return Abortable.wrap((_signal) =>
-          sleepBeforeExecute(
-            () => this.downloadFile({ src, dest, signal }, rt + 1),
-            RETRY_INTERVAL,
-            _signal
-          )
+        return sleepBeforeExecute(
+          () => this.downloadFile({ src, dest }, rt + 1),
+          RETRY_INTERVAL
         );
       }
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -495,7 +525,7 @@ export default class Fetcher {
   }
 
   async downloadVideo(params: FetcherDownloadParams, rt = 0) {
-    const { src, dest, signal } = params;
+    const { src, dest } = params;
 
     const ext = path.extname(new URL(src).pathname);
     if (ext === '.mp4') {
@@ -504,94 +534,97 @@ export default class Fetcher {
 
     const tmpFilePath = this.#getTmpFilePath(dest);
 
-    return new Promise<FetcherDownloadResult>((resolve, reject) => {
-      const inputOptions = [
-        '-protocol_whitelist crypto,http,https,tcp,tls,httpproxy'
-      ];
-      // `extension_picky` introduced in v7.1.1
-      const supportsExtensionPicky = semver.satisfies(
-        this.#getFFmpegVersion(),
-        '>=7.1.1'
-      );
-      if (ext === '.m3u8' && supportsExtensionPicky) {
-        inputOptions.push('-extension_picky 0');
-      }
-      const ffmpegCommand = ffmpeg(src)
-        .inputOptions(inputOptions)
-        .output(tmpFilePath)
-        .outputOptions('-c copy')
-        .outputOptions('-f mp4')
-        .on('start', (commandLine: string) => {
-          this.log('debug', 'FFmpeg command begin:', commandLine);
-        })
-        .on('end', () => {
-          this.log('debug', 'FFmpeg download completed');
-          resolve({
-            tmpFilePath,
-            commit: () => this.#commitDownload(tmpFilePath, dest),
-            discard: () => this.#cleanupDownload(tmpFilePath)
-          });
-        })
-        .on('error', (error: any) => {
-          this.#cleanupDownload(tmpFilePath);
-          if (signal.aborted) {
-            reject(new AbortError());
-            return;
+    return Abortable.wrap(
+      (controller) =>
+        new Promise<FetcherDownloadResult>((resolve, reject) => {
+          const signal = controller.signal;
+          const inputOptions = [
+            '-protocol_whitelist crypto,http,https,tcp,tls,httpproxy'
+          ];
+          // `extension_picky` introduced in v7.1.1
+          const supportsExtensionPicky = semver.satisfies(
+            this.#getFFmpegVersion(),
+            '>=7.1.1'
+          );
+          if (ext === '.m3u8' && supportsExtensionPicky) {
+            inputOptions.push('-extension_picky 0');
           }
-          const maxRetries = this.#config.request.maxRetries;
-          if (rt < maxRetries) {
-            this.log(
-              'error',
-              `Error downloading HLS video from "${src}" - will retry: `,
-              error
-            );
-            Abortable.wrap((_signal) =>
-              sleepBeforeExecute(
-                () => this.downloadVideo({ src, dest, signal }, rt + 1),
-                RETRY_INTERVAL,
-                _signal
-              )
-            )
-              .then((result) => {
-                resolve(result);
-              })
-              .catch((error: unknown) => {
-                reject(error instanceof Error ? error : Error(String(error)));
-              });
-            return;
-          }
-          const errMsg = error instanceof Error ? error.message : error;
-          const retriedMsg = rt > 0 ? ` (retried ${rt} times)` : '';
-          reject(
-            new FetcherError({
-              message: `${errMsg}${retriedMsg}`,
-              url: src,
-              cause: error
+          const ffmpegCommand = ffmpeg(src)
+            .inputOptions(inputOptions)
+            .output(tmpFilePath)
+            .outputOptions('-c copy')
+            .outputOptions('-f mp4')
+            .on('start', (commandLine: string) => {
+              this.log('debug', 'FFmpeg command begin:', commandLine);
             })
-          );
-        });
+            .on('end', () => {
+              this.log('debug', 'FFmpeg download completed');
+              resolve({
+                tmpFilePath,
+                commit: () => this.#commitDownload(tmpFilePath, dest),
+                discard: () => this.#cleanupDownload(tmpFilePath)
+              });
+            })
+            .on('error', (error: any) => {
+              this.#cleanupDownload(tmpFilePath);
+              if (signal.aborted) {
+                reject(new AbortError());
+                return;
+              }
+              const maxRetries = this.#config.request.maxRetries;
+              if (rt < maxRetries) {
+                this.log(
+                  'error',
+                  `Error downloading HLS video from "${src}" - will retry: `,
+                  error
+                );
+                sleepBeforeExecute(
+                  () => this.downloadVideo({ src, dest }, rt + 1),
+                  RETRY_INTERVAL
+                )
+                  .then((result) => {
+                    resolve(result);
+                  })
+                  .catch((error: unknown) => {
+                    reject(
+                      error instanceof Error ? error : Error(String(error))
+                    );
+                  });
+                return;
+              }
+              const errMsg = error instanceof Error ? error.message : error;
+              const retriedMsg = rt > 0 ? ` (retried ${rt} times)` : '';
+              reject(
+                new FetcherError({
+                  message: `${errMsg}${retriedMsg}`,
+                  url: src,
+                  cause: error
+                })
+              );
+            });
 
-      signal.onabort = () => {
-        ffmpegCommand.kill('SIGKILL');
-      };
+          signal.onabort = () => {
+            ffmpegCommand.kill('SIGKILL');
+          };
 
-      if (this.#proxyAgentInfo) {
-        // FFmpeg only supports HTTP proxy
-        if (this.#proxyAgentInfo.protocol === 'http') {
-          ffmpegCommand.inputOptions(
-            '-http_proxy',
-            this.#proxyAgentInfo.proxyURL
-          );
-        } else {
-          this.log(
-            'warn',
-            `${this.#proxyAgentInfo.protocol.toUpperCase()} proxy ignored - FFmpeg supports HTTP proxy only`
-          );
-        }
-      }
+          if (this.#proxyAgentInfo) {
+            // FFmpeg only supports HTTP proxy
+            if (this.#proxyAgentInfo.protocol === 'http') {
+              ffmpegCommand.inputOptions(
+                '-http_proxy',
+                this.#proxyAgentInfo.proxyURL
+              );
+            } else {
+              this.log(
+                'warn',
+                `${this.#proxyAgentInfo.protocol.toUpperCase()} proxy ignored - FFmpeg supports HTTP proxy only`
+              );
+            }
+          }
 
-      ffmpegCommand.run();
-    });
+          ffmpegCommand.run();
+        })
+    );
   }
 
   #commitDownload(tmpFilePath: string, destFilePath: string) {

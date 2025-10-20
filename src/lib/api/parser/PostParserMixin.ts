@@ -7,7 +7,7 @@ import {
   type PostMedia,
   PostType
 } from '../../entities/Post';
-import { Abortable, AbortError } from '../../utils/Abortable';
+import { Abortable, isAbortError } from '../../utils/Abortable';
 import { SITE_URL } from '../../utils/Constants';
 import ObjectHelper from '../../utils/ObjectHelper';
 import { getPostIdFromURL, validateURL } from '../../utils/URL';
@@ -62,9 +62,9 @@ export function PostParserMixin<TBase extends APIDataParserConstructor>(
           }
           if (fetchUserIfNull && fetchUserFn) {
             try {
-              user = await Abortable.wrap(() => fetchUserFn(username));
+              user = await fetchUserFn(username);
             } catch (error) {
-              if (error instanceof AbortError) {
+              if (isAbortError(error)) {
                 throw error;
               }
               const id = ObjectHelper.getProperty(data, 'data.id');
@@ -447,7 +447,7 @@ export function PostParserMixin<TBase extends APIDataParserConstructor>(
           errorCount
         };
       } catch (error) {
-        if (error instanceof AbortError) {
+        if (isAbortError(error)) {
           throw error;
         }
         const id = ObjectHelper.getProperty(data, 'data.id');

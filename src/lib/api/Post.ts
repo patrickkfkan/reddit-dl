@@ -2,7 +2,7 @@ import type Bottleneck from 'bottleneck';
 import { type Post, type PostComment, type PostType } from '../entities/Post';
 import { type Subreddit } from '../entities/Subreddit';
 import { type User } from '../entities/User';
-import { Abortable, AbortError } from '../utils/Abortable';
+import { Abortable, isAbortError } from '../utils/Abortable';
 import { SITE_URL } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
 import { validateURL } from '../utils/URL';
@@ -68,16 +68,13 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
     async fetchPostById(id: string, fetchUser = true) {
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/comments/${id}.json`,
-              params: {
-                raw_json: '1',
-                sr_detail: '1'
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/comments/${id}.json`,
+            params: {
+              raw_json: '1',
+              sr_detail: '1'
+            }
+          })
         );
         if (!Array.isArray(data)) {
           throw new TypeError('data is not an array');
@@ -108,7 +105,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
             )
         );
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           this.log('error', `Failed to fetch post by Id "${id}":`, error);
         }
         throw error;
@@ -121,19 +118,16 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       const { user, sortBy = 'new', after, limit = MAX_LIMIT } = params;
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/user/${user.username}/submitted.json`,
-              params: {
-                raw_json: '1',
-                sr_detail: '1',
-                sort: sortBy,
-                limit: String(limit),
-                after: after || null
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/user/${user.username}/submitted.json`,
+            params: {
+              raw_json: '1',
+              sr_detail: '1',
+              sort: sortBy,
+              limit: String(limit),
+              after: after || null
+            }
+          })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -161,7 +155,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           after: ObjectHelper.getProperty(data, 'data.after') || null
         };
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           this.log(
             'error',
             `Failed to fetch posts for user ${user.username}:`,
@@ -182,18 +176,15 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       }
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/r/${subreddit.name}/${sortBy}.json`,
-              params: {
-                raw_json: '1',
-                sr_detail: '1',
-                limit: String(limit),
-                after: after || null
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/r/${subreddit.name}/${sortBy}.json`,
+            params: {
+              raw_json: '1',
+              sr_detail: '1',
+              limit: String(limit),
+              after: after || null
+            }
+          })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -230,7 +221,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           after: ObjectHelper.getProperty(data, 'data.after') || null
         };
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           this.log(
             'error',
             `Failed to fetch posts from subreddit ${subreddit.name}:`,
@@ -254,13 +245,10 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
         'debug',
         `(${postId}) Fetching hybrid HTML for post "${postURL}"...`
       );
-      const { html } = await Abortable.wrap((signal) =>
-        this.fetcher.fetchHTML({
-          url: postURL,
-          signal,
-          hybrid: true
-        })
-      );
+      const { html } = await this.fetcher.fetchHTML({
+        url: postURL,
+        hybrid: true
+      });
       const $ = cheerioLoad(html);
       const videoSrc = $(`shreddit-player-2[post-id="t3_${postId}"]`).attr(
         'src'
@@ -281,8 +269,8 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       );
     }
 
-    fetchRedgifsData(postId: string, contentURL: string, signal: AbortSignal) {
-      return this.#redgifsFetcher.fetch(postId, contentURL, signal);
+    fetchRedgifsData(postId: string, contentURL: string) {
+      return this.#redgifsFetcher.fetch(postId, contentURL);
     }
 
     async fetchPostComments(postId: string): Promise<FetchPostCommentsResult> {
@@ -296,15 +284,12 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       this.log('debug', `Fetching comments for post "${postId}"...`);
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/comments/${postId}.json`,
-              params: {
-                raw_json: '1'
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/comments/${postId}.json`,
+            params: {
+              raw_json: '1'
+            }
+          })
         );
         if (!Array.isArray(data)) {
           throw new TypeError('data is not an array');
@@ -331,7 +316,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
           errorCount: stats.errorCount
         };
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           this.log(
             'error',
             `Failed to fetch comments for post "${postId}":`,
@@ -372,19 +357,16 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       try {
         const { json: data } = await this.#fetchMoreCommentsLimiter.schedule(
           () =>
-            Abortable.wrap((signal) =>
-              this.fetcher.fetchAPI({
-                endpoint: `/api/morechildren`,
-                params: {
-                  raw_json: '1',
-                  api_type: 'json',
-                  link_id: `t3_${postId}`,
-                  children: children.join(',')
-                },
-                signal,
-                requiresAuth: true
-              })
-            )
+            this.fetcher.fetchAPI({
+              endpoint: `/api/morechildren`,
+              params: {
+                raw_json: '1',
+                api_type: 'json',
+                link_id: `t3_${postId}`,
+                children: children.join(',')
+              },
+              requiresAuth: true
+            })
         );
         const things = ObjectHelper.getProperty(data, 'json.data.things');
         if (!Array.isArray(things)) {
@@ -398,7 +380,7 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
             this.fetchMorePostComments(postId, more, stats)
         );
       } catch (error) {
-        if (!(error instanceof AbortError)) {
+        if (!isAbortError(error)) {
           if (
             error instanceof FetcherError &&
             error.statusCode === FetcherError.NO_AUTH

@@ -1,5 +1,5 @@
 import { jwtDecode } from 'jwt-decode';
-import { AbortError } from './Abortable';
+import { isAbortError } from './Abortable';
 import type Fetcher from './Fetcher';
 import { type Logger } from './logging';
 import { commonLog, type LogLevel } from './logging/Logger';
@@ -32,26 +32,23 @@ export class RedgifsFetcher {
     this.#token = null;
   }
 
-  protected async getTemporaryToken(signal: AbortSignal) {
+  protected async getTemporaryToken() {
     if (!this.#token) {
-      this.#token = this.#doGetTemporaryToken(signal).catch(
-        (error: unknown) => {
-          if (error instanceof AbortError) {
-            throw error;
-          }
-          this.#token = null;
-          return null;
+      this.#token = this.#doGetTemporaryToken().catch((error: unknown) => {
+        if (isAbortError(error)) {
+          throw error;
         }
-      );
+        this.#token = null;
+        return null;
+      });
     }
     return this.#token;
   }
 
-  async #doGetTemporaryToken(signal: AbortSignal) {
+  async #doGetTemporaryToken() {
     try {
       const { json } = await this.#fetcher.fetchJSON({
-        url: REDGIFS_TOKEN_URL,
-        signal
+        url: REDGIFS_TOKEN_URL
       });
       const token = ObjectHelper.getProperty(json, 'token', true);
       if (typeof token !== 'string') {
@@ -78,7 +75,7 @@ export class RedgifsFetcher {
       }
       return token;
     } catch (error) {
-      if (error instanceof AbortError) {
+      if (isAbortError(error)) {
         throw error;
       }
       this.log(
@@ -90,14 +87,14 @@ export class RedgifsFetcher {
     }
   }
 
-  async fetch(postId: string, url: string, signal: AbortSignal) {
-    const token = await this.getTemporaryToken(signal);
+  async fetch(postId: string, url: string) {
+    const token = await this.getTemporaryToken();
     if (!token) {
       this.log(
         'warn',
         `Failed to obtain temporary token. Will try scraping Redgifs data from "${url}".`
       );
-      return this.#scrape(postId, url, signal);
+      return this.#scrape(postId, url);
     }
     const gifId = path.parse(url).name.toLowerCase();
     const headers = {
@@ -108,8 +105,7 @@ export class RedgifsFetcher {
       const { json } = await this.#fetcher.fetchJSON({
         url: apiURL,
         headers,
-        onRequestRetry: (is429) => !is429,
-        signal
+        onRequestRetry: (is429) => !is429
       });
       const result: RedgifsData = {
         thumbnailSrc:
@@ -133,7 +129,7 @@ export class RedgifsFetcher {
       }
       return result;
     } catch (error) {
-      if (error instanceof AbortError) {
+      if (isAbortError(error)) {
         throw error;
       }
       this.log(
@@ -142,19 +138,14 @@ export class RedgifsFetcher {
         error,
         ' Will try scraping.'
       );
-      return this.#scrape(postId, url, signal);
+      return this.#scrape(postId, url);
     }
   }
 
-  async #scrape(
-    postId: string,
-    url: string,
-    signal: AbortSignal
-  ): Promise<RedgifsData> {
+  async #scrape(postId: string, url: string): Promise<RedgifsData> {
     try {
       const { html } = await this.#fetcher.fetchHTML({
-        url,
-        signal
+        url
       });
       const $ = cheerioLoad(html);
       const ld = JSON.parse($('script[type="application/ld+json"]').text());
@@ -195,7 +186,7 @@ export class RedgifsFetcher {
         const thumbnailSrcErrors: { variant: string; error: Error }[] = [];
         thumbnailSrc = await (async () => {
           for (const variant of thumbnailVariants) {
-            const testResult = await this.#fetcher.test(variant, signal);
+            const testResult = await this.#fetcher.test(variant);
             if (testResult.ok) {
               this.log(
                 'debug',
@@ -278,7 +269,7 @@ export class RedgifsFetcher {
             `(${postId}) (Scrape) Test Redgifs video src:`,
             variant
           );
-          const testResult = await this.#fetcher.test(variant, signal);
+          const testResult = await this.#fetcher.test(variant);
           if (testResult.ok) {
             this.log(
               'debug',
@@ -319,7 +310,7 @@ export class RedgifsFetcher {
         videoSrc: null
       };
     } catch (error) {
-      if (error instanceof AbortError) {
+      if (isAbortError(error)) {
         throw error;
       }
       return {

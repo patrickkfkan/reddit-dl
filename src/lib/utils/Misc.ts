@@ -1,5 +1,5 @@
 import os from 'os';
-import { AbortError } from './Abortable';
+import { Abortable, AbortError } from './Abortable';
 import _sanitizeHTML from 'sanitize-html';
 
 // https://stackoverflow.com/questions/57835286/deep-recursive-requiredt-on-specific-properties
@@ -27,25 +27,27 @@ export function pickDefined<T>(value1?: T, value2?: T) {
 
 export function sleepBeforeExecute<T>(
   fn: () => Promise<T>,
-  ms: number,
-  signal: AbortSignal
+  ms: number
 ): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const result = await fn();
-          resolve(result);
-        } catch (error) {
-          reject(error instanceof Error ? error : Error(String(error)));
-        }
-      })();
-    }, ms);
-    signal.onabort = () => {
-      clearTimeout(timer);
-      reject(new AbortError());
-    };
-  });
+  return Abortable.wrap(
+    (controller) =>
+      new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          void (async () => {
+            try {
+              const result = await fn();
+              resolve(result);
+            } catch (error) {
+              reject(error instanceof Error ? error : Error(String(error)));
+            }
+          })();
+        }, ms);
+        controller.signal.onabort = () => {
+          clearTimeout(timer);
+          reject(new AbortError());
+        };
+      })
+  );
 }
 
 export function utcSecondsToDate(utcSeconds: number): Date {

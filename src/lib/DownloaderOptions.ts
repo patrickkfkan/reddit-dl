@@ -27,6 +27,7 @@ export type DownloaderOptions<T extends DownloaderMode> =
         maxRetries?: number;
         maxConcurrent?: number;
         minTime?: number;
+        timeout?: number; // seconds
         proxy?: ProxyOptions | null;
       };
       overwrite?: boolean;
@@ -101,6 +102,7 @@ const DEFAULT_DOWNLOAD_MODE_CONFIG: Pick<
     maxRetries: 3,
     maxConcurrent: 10,
     minTime: 200,
+    timeout: 60,
     proxy: null
   },
   overwrite: false,
@@ -147,6 +149,7 @@ export function getDownloadModeConfig(
         defaults.request.maxConcurrent
       ),
       minTime: pickDefined(options?.request?.minTime, defaults.request.minTime),
+      timeout: pickDefined(options?.request?.timeout, defaults.request.timeout),
       proxy:
         options?.request?.proxy?.url ?
           {

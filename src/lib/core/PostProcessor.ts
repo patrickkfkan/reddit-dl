@@ -5,7 +5,7 @@ import {
 } from '../RedditDownloader';
 import { type DownloadableImage } from '../entities/Common';
 import { type MediaDownloaderConstructor } from './MediaDownloader';
-import { Abortable, AbortError } from '../utils/Abortable';
+import { Abortable, isAbortError } from '../utils/Abortable';
 import { getPostIdFromURL } from '../utils/URL';
 import { DELETED_USER } from '../utils/Constants';
 import { utcSecondsToDate } from '../utils/Misc';
@@ -246,7 +246,7 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
                 api.fetchHostedVideoURLFromHybridHTML(post.id, post.url)
               );
             } catch (error) {
-              if (error instanceof AbortError) {
+              if (isAbortError(error)) {
                 throw error;
               }
               this.log(
@@ -302,8 +302,8 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
               provider.toLowerCase() === 'redgifs'
             ) {
               const api = await this.getAPI();
-              const redgifsData = await Abortable.wrap((signal) =>
-                api.fetchRedgifsData(_post.id, contentURL, signal)
+              const redgifsData = await Abortable.wrap(() =>
+                api.fetchRedgifsData(_post.id, contentURL)
               );
               thumbnailSrc = redgifsData.thumbnailSrc || undefined;
               extractedSrc = redgifsData.videoSrc || undefined;
@@ -376,7 +376,7 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
               linkedPost = _linkedPost;
               stats.errorCount += lpErrorCount;
             } catch (error) {
-              if (error instanceof AbortError) {
+              if (isAbortError(error)) {
                 throw error;
               }
               this.log('error', ':: Failed to fetch linked post:', error);

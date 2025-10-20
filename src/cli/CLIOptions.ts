@@ -116,6 +116,9 @@ export function getCLIOptions(): CLIOptions<DownloaderMode> {
             minTime: CLIOptionValidator.validateNumber(
               commandLineOptions.request?.minTime
             ),
+            timeout: CLIOptionValidator.validateNumber(
+              commandLineOptions.request?.timeout
+            ),
             proxy: getProxyOptions(commandLineOptions)
           },
           pathToFFmpeg: CLIOptionValidator.validateString(

@@ -152,6 +152,7 @@ To download from these targets, you need to be [authenticated](#authentication).
 | `--max-retries <number>` | `-r` | Maximum retry attempts when a download fails. Default: `3` |
 | `--max-concurrent <number>` | `-c` | Maximum number of concurrent downloads. Default: `10` |
 | `--min-time <milliseconds>` | `-p` | Minimum time to wait between fetch requests. Default: `200` |
+| `--timeout <seconds>` | `-t` | Minimum time to wait before aborting a request. Default: `60` |
 | `--proxy <URI>` | | Use the specified proxy. `<URI>` follows this scheme: <p>`protocol://[username:[password]]@host:port`</p><p>`protocol` can be `http`, `https`, `socks4` or `socks5`.</p> |
 | `--proxy-insecure` | | Do not reject invalid certificate when connecting to proxy through SSL / TLS. Use this option for proxies with self-signed certs. |
 | `--log-level <level>` | `-l` | Log level: `info`, `debug`, `warn` or `error`; set to `none` to disable logging. Default: `info` |

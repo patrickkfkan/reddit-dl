@@ -22,7 +22,7 @@ import {
 } from './core/PostProcessor.js';
 import API, { type APIInstance } from './api/index.js';
 import FSHelper from './utils/FSHelper.js';
-import { Abortable, AbortError } from './utils/Abortable.js';
+import { Abortable, isAbortError } from './utils/Abortable.js';
 import { getPostIdFromURL } from './utils/URL.js';
 import { type ResolvedTarget } from './entities/Target.js';
 import Limiter from './utils/Limiter.js';
@@ -927,7 +927,7 @@ export class RedditDownloaderBase {
   protected isErrorNonContinuable(error: any, signal?: AbortSignal) {
     return (
       signal?.aborted ||
-      error instanceof AbortError ||
+      isAbortError(error) ||
       (error instanceof FetcherError && error.fatal)
     );
   }

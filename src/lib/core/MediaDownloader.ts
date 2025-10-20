@@ -10,7 +10,6 @@ import { getDuplicateMediaCheckerRef } from '../utils/DuplicateMediaCheckerRef';
 import { type Post, type PostType } from '../entities/Post';
 import { type Downloaded } from '../entities/Common';
 import FSHelper from '../utils/FSHelper';
-import { Abortable } from '../utils/Abortable';
 import { type User } from '../entities/User';
 import { type Subreddit } from '../entities/Subreddit';
 
@@ -143,13 +142,11 @@ export function MediaDownloaderMixin<TBase extends RedditDownloaderConstructor>(
         this.log('debug', 'Downloading image...');
         return await this.defaultLimiter.schedule(() =>
           (async () => {
-            const { tmpFilePath, commit, discard } = await Abortable.wrap(
-              (signal) =>
-                fetcher.downloadFile({
-                  src: normalizedSrc,
-                  dest: destFilePath,
-                  signal
-                })
+            const { tmpFilePath, commit, discard } = await fetcher.downloadFile(
+              {
+                src: normalizedSrc,
+                dest: destFilePath
+              }
             );
             const ref = await duplicateMediaCheckerRefFn(tmpFilePath);
             const { downloadPath: dbDownloadPath } =
@@ -232,14 +229,11 @@ export function MediaDownloaderMixin<TBase extends RedditDownloaderConstructor>(
         this.log('debug', 'Downloading video...');
         return await this.defaultLimiter.schedule(() =>
           (async () => {
-            const { tmpFilePath, commit, discard } = await Abortable.wrap(
-              (signal) =>
-                fetcher.downloadVideo({
-                  src,
-                  dest: destFilePath,
-                  signal
-                })
-            );
+            const { tmpFilePath, commit, discard } =
+              await fetcher.downloadVideo({
+                src,
+                dest: destFilePath
+              });
             const ref =
               customDuplicateCheckerRef ||
               (await getDuplicateMediaCheckerRef({

@@ -1,6 +1,6 @@
 import { type APIConstructor } from '.';
 import { type Subscription } from '../entities/User';
-import { Abortable, AbortError } from '../utils/Abortable';
+import { isAbortError } from '../utils/Abortable';
 import { DELETED_USER } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
 
@@ -28,21 +28,18 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
       }
       try {
         const { json } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/user/${username}/about.json`,
-              params: {
-                raw_json: '1'
-              },
-              signal
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/user/${username}/about.json`,
+            params: {
+              raw_json: '1'
+            }
+          })
         );
         return this.parser.parseUser(
           ObjectHelper.getProperty(json, 'data', true)
         );
       } catch (error) {
-        if (error instanceof AbortError) {
+        if (isAbortError(error)) {
           throw error;
         }
         throw Error(`Failed to fetch user "${username}"`, { cause: error });
@@ -52,20 +49,17 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
     async fetchMe() {
       try {
         const { json } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/api/v1/me`,
-              params: {
-                raw_json: '1'
-              },
-              signal,
-              requiresAuth: true
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/api/v1/me`,
+            params: {
+              raw_json: '1'
+            },
+            requiresAuth: true
+          })
         );
         return this.parser.parseUser(json);
       } catch (error) {
-        if (error instanceof AbortError) {
+        if (isAbortError(error)) {
           throw error;
         }
         throw Error(`Failed to fetch "me" info`, { cause: error });
@@ -78,19 +72,16 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
       const { after, limit = MAX_LIMIT } = params;
       try {
         const { json: data } = await this.defaultLimiter.schedule(() =>
-          Abortable.wrap((signal) =>
-            this.fetcher.fetchAPI({
-              endpoint: `/subreddits/mine/subscriber`,
-              params: {
-                raw_json: '1',
-                sr_detail: '1',
-                limit: String(limit),
-                after: after || null
-              },
-              signal,
-              requiresAuth: true
-            })
-          )
+          this.fetcher.fetchAPI({
+            endpoint: `/subreddits/mine/subscriber`,
+            params: {
+              raw_json: '1',
+              sr_detail: '1',
+              limit: String(limit),
+              after: after || null
+            },
+            requiresAuth: true
+          })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -125,7 +116,7 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
           after: ObjectHelper.getProperty(data, 'data.after') || null
         };
       } catch (error) {
-        if (error instanceof AbortError) {
+        if (isAbortError(error)) {
           throw error;
         }
         throw Error(`Failed to fetch subscriptions`, { cause: error });
