@@ -315,6 +315,7 @@ export default class RedditDownloaderCLI {
         t.startsWith('previous/')
       );
     }
+    const { chainLogger, fileLogger } = this.#createLoggers(options);
     const targetCountBeforeAddingPrevious = parsedTarget.targets.length;
     const addedPreviousTargets: string[] = [];
     if (previousTargetTypes.length > 0) {
@@ -328,7 +329,7 @@ export default class RedditDownloaderCLI {
           `Previous targets specified, but DB file "${dbFilePath}" does not exist`
         );
       }
-      const db = await DB.getInstance(dbFilePath);
+      const db = await DB.getInstance(dbFilePath, chainLogger);
       const targets = db.getTargets({
         type: previousTargetTypes,
         sortBy: 'leastRecentlyRun',
@@ -417,7 +418,6 @@ export default class RedditDownloaderCLI {
       console.error('');
       throw Error('Invalid target');
     }
-    const { chainLogger, fileLogger } = this.#createLoggers(options);
     return {
       mode: DownloaderMode.DOWNLOAD,
       targets: parsedTarget.targets,
