@@ -22,6 +22,7 @@ export type Post<T extends PostType> = {
   author: User;
   createdUTC: number;
   removedBy: string | null;
+  pinned?: boolean;
   title: string;
   content: {
     text: string;

@@ -364,6 +364,7 @@ export function PostParserMixin<TBase extends APIDataParserConstructor>(
             ObjectHelper.getProperty(data, 'data.removed_by_category') ||
             ObjectHelper.getProperty(data, 'data.removed_by') ||
             null,
+          pinned: ObjectHelper.getProperty(data, 'data.pinned') || false,
           author: user,
           subreddit: subreddit || {
             id: subredditId,

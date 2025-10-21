@@ -77,7 +77,12 @@ export function PostProcessorMixin<TBase extends MediaDownloaderConstructor>(
       }
       const db = await this.getDB();
       const dbPost = db.getPost(post.id);
-      if (dbPost && this.config.continue && !ignoreContinueConditions) {
+      if (
+        dbPost &&
+        this.config.continue &&
+        !post.pinned &&
+        !ignoreContinueConditions
+      ) {
         this.log(
           'info',
           ':: Previously downloaded - not proceeding further because "--continue" option was specified'
