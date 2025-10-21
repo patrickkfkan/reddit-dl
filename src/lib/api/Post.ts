@@ -1,9 +1,8 @@
-import type Bottleneck from 'bottleneck';
 import { type Post, type PostComment, type PostType } from '../entities/Post';
 import { type Subreddit } from '../entities/Subreddit';
 import { type User } from '../entities/User';
 import { Abortable, isAbortError } from '../utils/Abortable';
-import { SITE_URL } from '../utils/Constants';
+import { DEFAULT_LIMITER_NAME, SITE_URL } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
 import { validateURL } from '../utils/URL';
 import { type UserAPIConstructor } from './User';
@@ -48,33 +47,33 @@ export type PostAPIConstructor = new (
   ...args: any[]
 ) => InstanceType<ReturnType<typeof PostAPIMixin<UserAPIConstructor>>>;
 
+const FETCH_MORE_LIMITER_NAME = 'postAPI.fetchMoreComments';
+
 export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
   return class PostAPI extends Base {
-    #fetchMoreCommentsLimiter: Bottleneck;
     #redgifsFetcher: RedgifsFetcher;
 
     constructor(...args: any[]) {
       super(...args);
-      this.#fetchMoreCommentsLimiter = this.limiter.create(
-        'postAPI.fetchMoreComments',
-        {
-          maxConcurrent: 1,
-          minTime: 300
-        }
-      );
+      this.limiter.create(FETCH_MORE_LIMITER_NAME, {
+        maxConcurrent: 1,
+        minTime: 300
+      });
       this.#redgifsFetcher = new RedgifsFetcher(this.fetcher, this.logger);
     }
 
     async fetchPostById(id: string, fetchUser = true) {
       try {
-        const { json: data } = await this.defaultLimiter.schedule(() =>
-          this.fetcher.fetchAPI({
-            endpoint: `/comments/${id}.json`,
-            params: {
-              raw_json: '1',
-              sr_detail: '1'
-            }
-          })
+        const { json: data } = await this.limiter.schedule(
+          DEFAULT_LIMITER_NAME,
+          () =>
+            this.fetcher.fetchAPI({
+              endpoint: `/comments/${id}.json`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1'
+              }
+            })
         );
         if (!Array.isArray(data)) {
           throw new TypeError('data is not an array');
@@ -117,17 +116,19 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
     ): Promise<FetchPostsResult> {
       const { user, sortBy = 'new', after, limit = MAX_LIMIT } = params;
       try {
-        const { json: data } = await this.defaultLimiter.schedule(() =>
-          this.fetcher.fetchAPI({
-            endpoint: `/user/${user.username}/submitted.json`,
-            params: {
-              raw_json: '1',
-              sr_detail: '1',
-              sort: sortBy,
-              limit: String(limit),
-              after: after || null
-            }
-          })
+        const { json: data } = await this.limiter.schedule(
+          DEFAULT_LIMITER_NAME,
+          () =>
+            this.fetcher.fetchAPI({
+              endpoint: `/user/${user.username}/submitted.json`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                sort: sortBy,
+                limit: String(limit),
+                after: after || null
+              }
+            })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -175,16 +176,18 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
         url.searchParams.append('after', after);
       }
       try {
-        const { json: data } = await this.defaultLimiter.schedule(() =>
-          this.fetcher.fetchAPI({
-            endpoint: `/r/${subreddit.name}/${sortBy}.json`,
-            params: {
-              raw_json: '1',
-              sr_detail: '1',
-              limit: String(limit),
-              after: after || null
-            }
-          })
+        const { json: data } = await this.limiter.schedule(
+          DEFAULT_LIMITER_NAME,
+          () =>
+            this.fetcher.fetchAPI({
+              endpoint: `/r/${subreddit.name}/${sortBy}.json`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                limit: String(limit),
+                after: after || null
+              }
+            })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {
@@ -283,13 +286,15 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       }
       this.log('debug', `Fetching comments for post "${postId}"...`);
       try {
-        const { json: data } = await this.defaultLimiter.schedule(() =>
-          this.fetcher.fetchAPI({
-            endpoint: `/comments/${postId}.json`,
-            params: {
-              raw_json: '1'
-            }
-          })
+        const { json: data } = await this.limiter.schedule(
+          DEFAULT_LIMITER_NAME,
+          () =>
+            this.fetcher.fetchAPI({
+              endpoint: `/comments/${postId}.json`,
+              params: {
+                raw_json: '1'
+              }
+            })
         );
         if (!Array.isArray(data)) {
           throw new TypeError('data is not an array');
@@ -355,7 +360,8 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       }
       this.log('debug', `Fetching more comments for post "${postId}"...`);
       try {
-        const { json: data } = await this.#fetchMoreCommentsLimiter.schedule(
+        const { json: data } = await this.limiter.schedule(
+          FETCH_MORE_LIMITER_NAME,
           () =>
             this.fetcher.fetchAPI({
               endpoint: `/api/morechildren`,

@@ -26,7 +26,6 @@ import { Abortable, isAbortError } from './utils/Abortable.js';
 import { getPostIdFromURL } from './utils/URL.js';
 import { type ResolvedTarget } from './entities/Target.js';
 import Limiter from './utils/Limiter.js';
-import type Bottleneck from 'bottleneck';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import { DEFAULT_LIMITER_NAME } from './utils/Constants.js';
@@ -93,7 +92,6 @@ export class RedditDownloaderBase {
   #getDBPromise: Promise<DBInstance> | null;
 
   protected limiter: Limiter;
-  protected defaultLimiter: Bottleneck;
   protected config: DownloadModeConfig;
   protected fsHelper: FSHelper;
   protected logger?: Logger | null;
@@ -120,7 +118,7 @@ export class RedditDownloaderBase {
     this.#getAPIPromise = null;
 
     this.limiter = new Limiter();
-    this.defaultLimiter = this.limiter.create(DEFAULT_LIMITER_NAME, {
+    this.limiter.create(DEFAULT_LIMITER_NAME, {
       maxConcurrent: this.config.request.maxConcurrent,
       minTime: this.config.request.minTime
     });
@@ -263,13 +261,13 @@ export class RedditDownloaderBase {
               processed: true,
               result: 'Aborted - unhandled error'
             });
-          } else {
-            __updateTargetResult({
-              name: target,
-              processed: true,
-              result: 'Aborted by user'
-            });
+            continue;
           }
+          __updateTargetResult({
+            name: target,
+            processed: true,
+            result: 'Aborted by user'
+          });
           throw error;
         } finally {
           this.logEmptyLine();
@@ -286,16 +284,13 @@ export class RedditDownloaderBase {
           combinedStats.downloadedMediaCount += stats.downloadedMediaCount;
           combinedStats.errorCount += stats.errorCount;
           combinedStats.warningCount += stats.warningCount;
+          await this.limiter.clear();
           Abortable.clear();
         }
       }
     } catch (_error) {
-      const __clearLimiters = () => this.limiter.clear();
       if (params.signal?.aborted) {
-        await __clearLimiters();
         this.log('info', 'Download aborted');
-      } else {
-        await __clearLimiters();
       }
     }
     if (targetResults.length > 1) {

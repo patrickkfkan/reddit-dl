@@ -1,7 +1,7 @@
 import { type APIConstructor } from '.';
 import { type Subscription } from '../entities/User';
 import { isAbortError } from '../utils/Abortable';
-import { DELETED_USER } from '../utils/Constants';
+import { DEFAULT_LIMITER_NAME, DELETED_USER } from '../utils/Constants';
 import ObjectHelper from '../utils/ObjectHelper';
 
 export interface FetchSubscriptionParams {
@@ -27,7 +27,7 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
         return DELETED_USER;
       }
       try {
-        const { json } = await this.defaultLimiter.schedule(() =>
+        const { json } = await this.limiter.schedule(DEFAULT_LIMITER_NAME, () =>
           this.fetcher.fetchAPI({
             endpoint: `/user/${username}/about.json`,
             params: {
@@ -48,7 +48,7 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
 
     async fetchMe() {
       try {
-        const { json } = await this.defaultLimiter.schedule(() =>
+        const { json } = await this.limiter.schedule(DEFAULT_LIMITER_NAME, () =>
           this.fetcher.fetchAPI({
             endpoint: `/api/v1/me`,
             params: {
@@ -71,17 +71,19 @@ export function UserAPIMixin<TBase extends APIConstructor>(Base: TBase) {
     ): Promise<FetchSubscriptionResult> {
       const { after, limit = MAX_LIMIT } = params;
       try {
-        const { json: data } = await this.defaultLimiter.schedule(() =>
-          this.fetcher.fetchAPI({
-            endpoint: `/subreddits/mine/subscriber`,
-            params: {
-              raw_json: '1',
-              sr_detail: '1',
-              limit: String(limit),
-              after: after || null
-            },
-            requiresAuth: true
-          })
+        const { json: data } = await this.limiter.schedule(
+          DEFAULT_LIMITER_NAME,
+          () =>
+            this.fetcher.fetchAPI({
+              endpoint: `/subreddits/mine/subscriber`,
+              params: {
+                raw_json: '1',
+                sr_detail: '1',
+                limit: String(limit),
+                after: after || null
+              },
+              requiresAuth: true
+            })
         );
         const children = ObjectHelper.getProperty(data, 'data.children');
         if (!Array.isArray(children)) {

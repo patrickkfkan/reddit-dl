@@ -12,6 +12,7 @@ import { type Downloaded } from '../entities/Common';
 import FSHelper from '../utils/FSHelper';
 import { type User } from '../entities/User';
 import { type Subreddit } from '../entities/Subreddit';
+import { DEFAULT_LIMITER_NAME } from '../utils/Constants';
 
 export type DownloadImageContext =
   | {
@@ -140,7 +141,7 @@ export function MediaDownloaderMixin<TBase extends RedditDownloaderConstructor>(
         const fetcher = await this.getFetcher();
         const db = await this.getDB();
         this.log('debug', 'Downloading image...');
-        return await this.defaultLimiter.schedule(() =>
+        return await this.limiter.schedule(DEFAULT_LIMITER_NAME, () =>
           (async () => {
             const { tmpFilePath, commit, discard } = await fetcher.downloadFile(
               {
@@ -227,7 +228,7 @@ export function MediaDownloaderMixin<TBase extends RedditDownloaderConstructor>(
         const fetcher = await this.getFetcher();
         const db = await this.getDB();
         this.log('debug', 'Downloading video...');
-        return await this.defaultLimiter.schedule(() =>
+        return await this.limiter.schedule(DEFAULT_LIMITER_NAME, () =>
           (async () => {
             const { tmpFilePath, commit, discard } =
               await fetcher.downloadVideo({

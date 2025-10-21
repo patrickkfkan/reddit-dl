@@ -6,8 +6,6 @@ import { UserAPIMixin } from './User';
 import type Fetcher from '../utils/Fetcher';
 import { type DownloadModeConfig } from '../DownloaderOptions';
 import type Limiter from '../utils/Limiter';
-import type Bottleneck from 'bottleneck';
-import { DEFAULT_LIMITER_NAME } from '../utils/Constants';
 import APIDataParser, {
   type APIDataParserInstance
 } from './parser/APIDataParser';
@@ -22,7 +20,6 @@ export class APIBase {
   protected config: DownloadModeConfig;
   protected fetcher: Fetcher;
   protected limiter: Limiter;
-  protected defaultLimiter: Bottleneck;
   protected logger?: Logger | null;
   protected parser: APIDataParserInstance;
 
@@ -36,7 +33,6 @@ export class APIBase {
     this.fetcher = fetcher;
     this.limiter = limiter;
     this.logger = logger;
-    this.defaultLimiter = limiter.get(DEFAULT_LIMITER_NAME);
     this.parser = new APIDataParser(logger);
   }
 
