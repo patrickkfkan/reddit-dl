@@ -125,13 +125,16 @@ export function MediaWebRequestHandlerMixin<
       }
       switch (type) {
         case 'image':
-          res.sendFile(mediaFilePath);
+          res.sendFile(mediaFilePath, {
+            dotfiles: 'allow'
+          });
           break;
         case 'video': {
           const range = req.headers.range;
           if (!range) {
             res.sendFile(mediaFilePath, {
-              headers: { 'Content-Type': 'video/mp4' }
+              headers: { 'Content-Type': 'video/mp4' },
+              dotfiles: 'allow'
             });
             return;
           }
