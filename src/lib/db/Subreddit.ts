@@ -99,10 +99,10 @@ export function SubredditDBMixin<TBase extends MediaDBConstructor>(
       let orderByClause: string;
       switch (sortBy) {
         case 'a-z':
-          orderByClause = 'ORDER BY subreddit.subreddit_name ASC';
+          orderByClause = 'ORDER BY subreddit.subreddit_name COLLATE NOCASE ASC';
           break;
         case 'z-a':
-          orderByClause = 'ORDER BY subreddit.subreddit_name DESC';
+          orderByClause = 'ORDER BY subreddit.subreddit_name COLLATE NOCASE DESC';
           break;
         case 'most_posts':
           orderByClause = 'ORDER BY subreddit.post_count DESC';
