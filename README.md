@@ -262,6 +262,11 @@ $ npm run make
 
 ## Changelog
 
+v1.1.1
+- Fix pinned posts causing `--continue` option to prematurely end target.
+- For multiple targets, continue to next one in the event one fails.
+- Fix missing database logs when `--continue` option used without specifying target.
+
 v1.1.0
 - New targets for downloading account-specific content
 - Add `--timeout` option
