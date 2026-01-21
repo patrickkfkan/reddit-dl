@@ -5,7 +5,7 @@ import { existsSync } from 'fs';
 import { commonLog } from '../utils/logging/Logger';
 import { updateDB } from './Update';
 
-const DB_SCHEMA_VERSION = '1.1.0';
+const DB_SCHEMA_VERSION = '1.1.1';
 
 const POST_FTS_SOURCE_DELETE_SQL = `DELETE FROM post_fts_source WHERE post_id = old.post_id;`;
 const POST_FTS_SOURCE_INSERT_SQL = `
@@ -400,6 +400,11 @@ export async function openDB(file: string, logger?: Logger | null) {
 
       CREATE INDEX IF NOT EXISTS "subreddit_name_index" ON "subreddit" (
         "subreddit_name"
+      );
+
+      -- Added in 1.1.1
+      CREATE INDEX IF NOT EXISTS "subreddit_name_nocase_index" ON "subreddit" (
+        "subreddit_name" COLLATE NOCASE
       );
 
       CREATE INDEX IF NOT EXISTS "subreddit_post_count_index" ON "subreddit" (
