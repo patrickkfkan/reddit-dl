@@ -3,6 +3,7 @@ import semver from 'semver';
 import path from 'path';
 import dateFormat from 'dateformat';
 import { DBUpdater_1_1_0 } from './updaters/DBUpdater_1_1_0.js';
+import { DBUpdater_1_1_1 } from './updaters/DBUpdater_1_1_1.js';
 import type Logger from '../utils/logging/Logger.js';
 import { commonLog } from '../utils/logging/Logger.js';
 
@@ -15,7 +16,10 @@ export interface DBUpdater {
   ) => Promise<void>;
 }
 
-const updaters: DBUpdater[] = [DBUpdater_1_1_0];
+const updaters: DBUpdater[] = [
+  DBUpdater_1_1_0,
+  DBUpdater_1_1_1
+];
 
 function getUpdaterByClosestHigherVersion(currentVersion: string) {
   const higher = updaters.filter((up) =>
