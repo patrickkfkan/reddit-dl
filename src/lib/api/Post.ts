@@ -255,6 +255,9 @@ export function PostAPIMixin<TBase extends UserAPIConstructor>(Base: TBase) {
       const $ = cheerioLoad(html);
       const videoSrc = $(`shreddit-player-2[post-id="t3_${postId}"]`).attr(
         'src'
+      ) ||
+      $(`shreddit-player[post-id="t3_${postId}"]`).attr(
+        'src'
       );
       const videoSrcURL = videoSrc ? validateURL(videoSrc, SITE_URL) : null;
       if (!videoSrcURL) {
