@@ -262,6 +262,11 @@ $ npm run make
 
 ## Changelog
 
+v1.1.2
+- Fix media access for dotfiles ([@yawkat](https://github.com/patrickkfkan/reddit-dl/pull/4))
+- Sort subreddit names case-insensitively ([@yawkat](https://github.com/patrickkfkan/reddit-dl/pull/5))
+- Fix parser missing high-res hosted video source
+
 v1.1.1
 - Fix pinned posts causing `--continue` option to prematurely end target.
 - For multiple targets, continue to next one in the event one fails.
