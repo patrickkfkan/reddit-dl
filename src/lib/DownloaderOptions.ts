@@ -18,6 +18,7 @@ export type DownloaderOptions<T extends DownloaderMode> =
     {
       dataDir?: string;
       oauth?: OAuthParams | null;
+      cookie?: string | null;
       limit?: number | null;
       after?: number | null; // Time in milliseconds
       before?: number | null; // Time in milliseconds
@@ -64,6 +65,7 @@ export interface DownloadModeConfig
     >
   > {
   oauth: OAuthParams | null;
+  cookie: string | null;
   targets: string[];
   logger: Logger | null;
 }
@@ -79,6 +81,7 @@ const DEFAULT_DOWNLOAD_MODE_CONFIG: Pick<
   DeepRequired<DownloadModeConfig>,
   | 'dataDir'
   | 'oauth'
+  | 'cookie'
   | 'limit'
   | 'after'
   | 'before'
@@ -93,6 +96,7 @@ const DEFAULT_DOWNLOAD_MODE_CONFIG: Pick<
 > & { logger: Logger | null } = {
   dataDir: process.cwd(),
   oauth: null,
+  cookie: null,
   limit: null,
   after: null,
   before: null,
@@ -131,6 +135,7 @@ export function getDownloadModeConfig(
     dataDir:
       options?.dataDir ? path.resolve(options.dataDir) : defaults.dataDir,
     oauth: pickDefined(options?.oauth, defaults.oauth),
+    cookie: pickDefined(options?.cookie, defaults.cookie),
     limit: pickDefined(options?.limit, defaults.limit),
     after: pickDefined(options?.after, defaults.after),
     before: pickDefined(options?.before, defaults.before),

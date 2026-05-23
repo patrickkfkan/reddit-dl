@@ -212,6 +212,9 @@ export default class Fetcher {
     if (hybrid) {
       headers['Accept-Language'] = 'en-GB,en;q=0.5';
       headers['Accept'] = 'text/vnd.reddit.hybrid+html, text/html;q=0.9';
+      if (this.#config.cookie) {
+        headers['Cookie'] = this.#config.cookie;
+      }
     }
     return this.fetchWithRetry({
       url,

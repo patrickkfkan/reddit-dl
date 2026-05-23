@@ -26,6 +26,7 @@ import { getLocalIPAddress } from '../lib/utils/Misc.js';
 import { DateTime } from 'luxon';
 import DB from '../lib/db/index.js';
 import { type ResolvedTarget } from '../lib/entities/Target.js';
+import { AuthFile } from '../lib/utils/AuthFile.js';
 
 type StartParams<T extends DownloaderMode> = {
   mode: T;
@@ -238,10 +239,13 @@ export default class RedditDownloaderCLI {
       targets: string[];
     } | null = null;
     let oauth: OAuthParams | null = null;
+    let cookie: string | null = null;
 
-    // OAuth
+    // OAuth and/or cookie
     if (options.auth) {
-      oauth = OAuth.readOAuthParamsFromFile(options.auth);
+      const auth = AuthFile.read(options.auth);
+      oauth = auth.oauth;
+      cookie = auth.cookie;
     }
 
     const target = options.target;
@@ -424,6 +428,7 @@ export default class RedditDownloaderCLI {
       options: {
         ...options,
         oauth,
+        cookie,
         logger: chainLogger
       },
       logger: chainLogger,
@@ -503,6 +508,7 @@ export default class RedditDownloaderCLI {
     const lines = [
       `- Data directory: ${config.dataDir}`,
       `- Authentication: ${config.oauth ? 'OAuth credentials provided' : 'none'}`,
+      `- Cookie: ${config.cookie ? 'provided' : 'none'}`,
       `- Limit: ${config.limit !== null ? config.limit : 'none'}`,
       `- Date range: ${dateRangeStrings.join('; ')}`,
       `- Fetch post comments: ${config.fetchComments ? 'yes' : 'no'}`,

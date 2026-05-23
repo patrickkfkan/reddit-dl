@@ -1,7 +1,6 @@
 import EventEmitter from 'events';
 import { type DownloadModeConfig } from '../DownloaderOptions';
 import { createProxyAgent, type ProxyAgentInfo } from './Proxy';
-import { readFileSync } from 'fs-extra';
 import { fetch, Request } from 'undici';
 import { type Logger, type LogLevel } from './logging';
 import { commonLog } from './logging/Logger';
@@ -150,74 +149,6 @@ export default class OAuth extends EventEmitter {
       scope: value['scope'],
       tokenType: value['token_type']
     };
-  }
-
-  static readOAuthParamsFromFile(file: string): OAuthParams {
-    try {
-      const lines = readFileSync(file, 'utf-8')
-        .split(/\r?\n/)
-        .map((line) => {
-          let _l = line.trim();
-          if (
-            (_l.length > 1 && _l.startsWith("'") && _l.endsWith("'")) ||
-            (_l.startsWith('"') && _l.endsWith('"'))
-          ) {
-            _l = _l.substring(1, _l.length - 1);
-          }
-          return _l;
-        })
-        .filter((line) => line && !line.startsWith('#'));
-      const props = lines.reduce<Record<string, string>>((result, line) => {
-        const equalIndex = line.indexOf('=');
-        if (equalIndex >= 1) {
-          const prop = line.substring(0, equalIndex).trim();
-          const value = line.substring(equalIndex + 1).trim();
-          if (prop && value) {
-            result[prop] = value;
-          }
-        }
-        return result;
-      }, {});
-      const params: Record<keyof OAuthParams, string> = {
-        clientId: props['client.id'],
-        clientSecret: props['client.secret'],
-        username: props['username'],
-        password: props['password']
-      };
-      if (this.#validateOAuthParams(params)) {
-        return params;
-      }
-      return undefined as never;
-    } catch (error) {
-      throw Error(
-        `Error reading OAuth params from "${file}": ${error instanceof Error ? error.message : Error(String(error))}`
-      );
-    }
-  }
-
-  static #validateOAuthParams(
-    value: Record<string, any>
-  ): value is OAuthParams {
-    const skeleton: OAuthParams = {
-      clientId: '',
-      clientSecret: '',
-      username: '',
-      password: ''
-    };
-    const skeletonToFilePropMap: Record<keyof typeof skeleton, string> = {
-      clientId: 'client.id',
-      clientSecret: 'client.secret',
-      username: 'username',
-      password: 'password'
-    };
-    for (const prop of Object.keys(skeleton)) {
-      if (!value[prop]) {
-        throw Error(
-          `Property "${skeletonToFilePropMap[prop as keyof typeof skeleton]}" is missing or does not have a value`
-        );
-      }
-    }
-    return true;
   }
 
   protected log(level: LogLevel, ...msg: Array<any>) {

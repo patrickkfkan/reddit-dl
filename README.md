@@ -191,11 +191,19 @@ $ reddit-dl --continue
 
 #### Authentication
 
+***OAuth credentials***
+
 `reddit-dl` retrieves content primarily through API requests. However, Reddit enforces rate limits, restricting the number of requests within a given timeframe. Once the limit is reached, `reddit-dl` will pause downloads until it resets.
-                                                                                
-Authentication provides access to a higher API rate limit. In addition, it enables downloading [account-specific content](#account-specific-content). To authenticate, register as a developer on Reddit (you can use your existing account) and obtain the required credentials. These credentials should be stored in a file and passed to `reddit-dl` using the `--auth` / `-x` option.
-                                                                               
-You will find detailed instructions in the [sample auth file](./auth.conf).
+                                                                                                                                                             
+Authentication provides access to a higher API rate limit. In addition, it enables downloading account-specific content. To authenticate, you need to have the relevant OAuth credentials from Reddit.
+
+***Cookie***
+
+Providing a browser cookie associated with a logged-in account can help `reddit-dl` download Reddit-hosted videos at their highest quality. Without it, quality may be capped at 720p.
+
+***`--auth` option***
+
+ Both OAuth credentials and cookie are stored in a plain text file and passed to `reddit-dl` using the `--auth` / `-x` option. You will find more details in the [sample auth file](./auth.conf).
 
 #### Date range
 

@@ -12,7 +12,7 @@ export type CLIOptions<T extends DownloaderMode> = {
   mode: T;
 } & (T extends DownloaderMode.DOWNLOAD ?
   {
-    options: Omit<DownloaderOptions<T>, 'oauth' | 'logger'> & {
+    options: Omit<DownloaderOptions<T>, 'oauth' | 'cookie' | 'logger'> & {
       target: string;
       auth?: string;
       noPrompt: boolean;
