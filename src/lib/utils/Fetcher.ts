@@ -20,6 +20,8 @@ import { PassThrough, Readable } from 'stream';
 
 const RETRY_INTERVAL = 1000;
 const RETRY_INTERVAL_429 = 300000; // 5 mins
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
 
 export interface FetcherDownloadParams {
   src: string;
@@ -139,8 +141,7 @@ export default class Fetcher {
     this.#config = config;
     this.#proxyAgentInfo = proxyAgentInfo;
     this.#accessToken = null;
-    this.#generalUserAgent =
-      USER_AGENTS[getRandomIntInclusive(0, USER_AGENTS.length)];
+    this.#generalUserAgent = BROWSER_USER_AGENT;
     if (config.oauth && oauth) {
       this.#apiUserAgent = oauth.getUserAgent();
     } else {
@@ -319,6 +320,16 @@ export default class Fetcher {
       }
     } else {
       request.headers.set('Accept-Language', 'en-GB,en;q=0.5');
+    }
+    const isRedditHost =
+      urlObj.hostname === 'reddit.com' ||
+      urlObj.hostname.endsWith('.reddit.com');
+    if (
+      this.#config.cookie &&
+      isRedditHost &&
+      !request.headers.has('Authorization')
+    ) {
+      request.headers.set('Cookie', this.#config.cookie);
     }
     try {
       this.log('debug', `${rt > 0 ? `(Retry #${rt}) ` : ''}${method} "${url}"`);
